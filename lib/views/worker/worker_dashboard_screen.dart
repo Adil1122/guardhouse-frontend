@@ -1,0 +1,719 @@
+import 'dart:async';
+
+import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
+import 'package:security_app/constants/app_constants.dart';
+import 'package:security_app/constants/typography.dart';
+import 'package:security_app/routes/routes.dart';
+import 'package:security_app/viewmodels/auth_viewmodel.dart';
+import 'package:security_app/viewmodels/worker_panel_viewmodel.dart';
+import 'package:security_app/viewmodels/worker_viewmodel.dart';
+import 'package:security_app/viewmodels/worker_geofence_viewmodel.dart';
+import 'package:security_app/widgets/worker_panel_components.dart';
+import 'package:security_app/widgets/supervisor_panel_components.dart';
+import 'package:security_app/services/storage_service.dart';
+
+class WorkerDashboardScreen extends StatefulWidget {
+  const WorkerDashboardScreen({super.key});
+
+  @override
+  State<WorkerDashboardScreen> createState() => _WorkerDashboardScreenState();
+}
+
+class _WorkerDashboardScreenState extends State<WorkerDashboardScreen> {
+  Timer? _clockTimer;
+  DateTime _now = DateTime.now();
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      // Initialize storage service for worker panel view model
+      final storageService = context.read<StorageService>();
+      context.read<WorkerPanelViewModel>().initialize(storageService);
+      
+      // Initialize location service
+      await context.read<WorkerPanelViewModel>().initializeLocationService();
+      
+      // Load dashboard data
+      final workerViewModel = context.read<WorkerViewModel>();
+      await workerViewModel.loadDashboardData();
+      
+      // Load current shift with geofence data
+      final geofenceViewModel = context.read<WorkerGeofenceViewModel>();
+      await geofenceViewModel.loadCurrentShift();
+      
+      if (!mounted) return;
+      context.read<WorkerPanelViewModel>().syncGeofenceStatus(
+        geofenceViewModel.currentShift,
+      );
+    });
+
+    _clockTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (!mounted) return;
+      setState(() => _now = DateTime.now());
+    });
+  }
+
+  @override
+  void dispose() {
+    _clockTimer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final authViewModel = context.watch<AuthViewModel>();
+    final workerViewModel = context.watch<WorkerViewModel>();
+    final panelViewModel = context.watch<WorkerPanelViewModel>();
+    final geofenceViewModel = context.watch<WorkerGeofenceViewModel>();
+
+    final userName =
+        authViewModel.currentUser?['fullName'] ??
+        authViewModel.currentUser?['full_name'] ??
+        'John Worker';
+    final site = workerViewModel.availableSites.isNotEmpty
+        ? workerViewModel.availableSites.first
+        : const <String, dynamic>{};
+    final siteName =
+        geofenceViewModel.currentShift?['site_name']?.toString() ??
+        site['name']?.toString() ??
+        workerViewModel.currentShift?['siteName']?.toString() ??
+        'No Site Assigned';
+    final siteAddress =
+        geofenceViewModel.currentShift?['site_address']?.toString() ??
+        site['address']?.toString() ?? 'Address: N/A';
+
+    final bool onDuty = geofenceViewModel.currentShift != null;
+    final bool insideGeofence = panelViewModel.isInsideGeofence;
+
+    return Scaffold(
+      backgroundColor: AppColors.dashboardBackground,
+      body: SafeArea(
+        child: RefreshIndicator(
+          onRefresh: () async {
+            await workerViewModel.loadDashboardData();
+            await geofenceViewModel.loadCurrentShift();
+            if (!mounted) return;
+            context.read<WorkerPanelViewModel>().syncGeofenceStatus(
+              geofenceViewModel.currentShift,
+            );
+          },
+          child: SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            child: Column(
+              children: [
+                _buildHeader(
+                  userName: userName,
+                  currentTime: _formatClock(_now),
+                  notifications: workerViewModel.unreadNotifications,
+                  onNotificationTap: () =>
+                      context.push(Routes.workerNotifications),
+                  onLogoutTap: () => _showLogoutSheet(context, authViewModel),
+                ),
+                Padding(
+                  padding: EdgeInsets.fromLTRB(16.w, 14.h, 16.w, 16.h),
+                  child: Column(
+                    children: [
+                      WorkerStatusBanner(
+                        title: insideGeofence
+                            ? 'Inside Geofence'
+                            : 'Outside Geofence',
+                        subtitle: insideGeofence
+                            ? 'Time tracking is active'
+                            : 'Move to site to start tracking',
+                        iconWidget: SvgPicture.asset(
+                          'assets/Icons/Iconerror.svg',
+                          width: 30.sp,
+                          height: 30.sp,
+                          colorFilter: ColorFilter.mode(
+                            insideGeofence ? AppColors.primary : Colors.red,
+                            BlendMode.srcIn,
+                          ),
+                        ),
+                        variant: insideGeofence
+                            ? WorkerStatusVariant.success
+                            : WorkerStatusVariant.danger,
+                        onTap: () async {
+                          if (!insideGeofence) {
+                            context
+                                .read<WorkerPanelViewModel>()
+                                .setGeofenceStatus(true);
+                            final workerVm = context.read<WorkerViewModel>();
+                            if (workerVm.currentShift == null) {
+                              final siteId = workerVm.availableSites.isNotEmpty
+                                  ? workerVm.availableSites.first['id']
+                                            ?.toString() ??
+                                        'site_1'
+                                  : 'site_1';
+                              await workerVm.startShift(
+                                siteId: siteId,
+                                location: 'Site geofence',
+                                notes: 'Auto started from geofence entry',
+                              );
+                            }
+                            return;
+                          }
+                          context.push(Routes.workerStartShift);
+                        },
+                      ),
+                      SizedBox(height: 12.h),
+                      WorkerPanelCard(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Assigned Site',
+                              style: AppTypography.body().copyWith(
+                                color: AppColors.textSecondary,
+                                fontSize: 12.sp,
+                              ),
+                            ),
+                            SizedBox(height: 6.h),
+                            Text(
+                              siteName,
+                              style: AppTypography.title().copyWith(
+                                fontSize: 18.sp,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            SizedBox(height: 4.h),
+                            Row(
+                              children: [
+                                Icon(
+                                  Icons.location_on_outlined,
+                                  size: 15.sp,
+                                  color: AppColors.textSecondary,
+                                ),
+                                SizedBox(width: 4.w),
+                                Expanded(
+                                  child: Text(
+                                    siteAddress,
+                                    style: AppTypography.body().copyWith(
+                                      color: AppColors.textSecondary,
+                                      fontSize: 11.sp,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            SizedBox(height: 10.h),
+                            SizedBox(
+                              width: double.infinity,
+                              child: WorkerActionButton(
+                                label: 'View Details',
+                                onTap: () =>
+                                    context.push(Routes.workerStartShift),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      SizedBox(height: 12.h),
+                      if (insideGeofence || onDuty) ...[
+                        WorkerPanelCard(
+                          backgroundColor: AppColors.primary,
+                          borderColor: AppColors.primary,
+                          child: Column(
+                            children: [
+                              Icon(
+                                Icons.watch_later_outlined,
+                                color: Colors.white,
+                                size: 22.sp,
+                              ),
+                              SizedBox(height: 6.h),
+                              Text(
+                                'Time on Duty',
+                                style: AppTypography.body().copyWith(
+                                  color: AppColors.subTextOnPrimary,
+                                  fontSize: 11.sp,
+                                ),
+                              ),
+                              SizedBox(height: 3.h),
+                              Text(
+                                _dutyDuration(
+                                  workerViewModel.currentShift?['startTime'] ??
+                                      panelViewModel.insideGeofenceSince,
+                                ),
+                                style: AppTypography.display().copyWith(
+                                  color: Colors.white,
+                                  fontSize: 24.sp,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                              SizedBox(height: 8.h),
+                              Divider(
+                                color: Colors.white.withOpacity(0.25),
+                                height: 1,
+                              ),
+                              SizedBox(height: 8.h),
+                              Text(
+                                'Check-ins today: ${workerViewModel.totalCheckins}',
+                                style: AppTypography.body().copyWith(
+                                  color: AppColors.subTextOnPrimary,
+                                  fontSize: 11.sp,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        SizedBox(height: 10.h),
+                        SizedBox(
+                          width: double.infinity,
+                          child: WorkerActionButton(
+                            label: 'Check In Now',
+                            icon: Icons.check_circle_outline,
+                            variant: WorkerButtonVariant.secondary,
+                            onTap: () => context.push('/worker/enhanced-checkin'),
+                          ),
+                        ),
+                        SizedBox(height: 8.h),
+                        SizedBox(
+                          width: double.infinity,
+                          child: WorkerActionButton(
+                            label: 'End Shift',
+                            icon: Icons.stop_circle_outlined,
+                            variant: WorkerButtonVariant.danger,
+                            onTap: () =>
+                                _showEndShiftSheet(context, workerViewModel),
+                          ),
+                        ),
+                        SizedBox(height: 10.h),
+                      ],
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _DashboardMiniAction(
+                              icon: Icons.history,
+                              label: 'Duty History',
+                              onTap: () => context.push(Routes.workerHistory),
+                            ),
+                          ),
+                          SizedBox(width: 10.w),
+                          Expanded(
+                            child: _DashboardMiniAction(
+                              icon: Icons.camera_alt_outlined,
+                              label: 'Photo Evidence',
+                              onTap: () => context.push('/worker/enhanced-checkin'),
+                            ),
+                          ),
+                        ],
+                      ),
+                      SizedBox(height: 12.h),
+                      const WorkerStatusBanner(
+                        title: 'Automatic Time Tracking',
+                        subtitle:
+                            'Your duty will start automatically when you enter the geofence radius.',
+                        icon: Icons.info_outline,
+                        variant: WorkerStatusVariant.info,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHeader({
+    required String userName,
+    required String currentTime,
+    required int notifications,
+    required VoidCallback onNotificationTap,
+    required VoidCallback onLogoutTap,
+  }) {
+    return Container(
+      width: double.infinity,
+      padding: EdgeInsets.fromLTRB(16.w, 12.h, 16.w, 16.h),
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [AppColors.headerBlue, AppColors.headerBlueLight],
+        ),
+      ),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Welcome back',
+                      style: AppTypography.body().copyWith(
+                        color: AppColors.subTextOnPrimary,
+                        fontSize: 12.sp,
+                      ),
+                    ),
+                    Text(
+                      userName,
+                      style: AppTypography.title().copyWith(
+                        color: Colors.white,
+                        fontSize: 22.sp,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  IconButton(
+                    onPressed: onNotificationTap,
+                    icon: const Icon(
+                      Icons.notifications_none,
+                      color: Colors.white,
+                    ),
+                  ),
+                  if (notifications > 0)
+                    Positioned(
+                      right: 2,
+                      top: 1,
+                      child: Container(
+                        width: 15.sp,
+                        height: 15.sp,
+                        decoration: const BoxDecoration(
+                          color: Colors.red,
+                          shape: BoxShape.circle,
+                        ),
+                        alignment: Alignment.center,
+                        child: Text(
+                          notifications > 9 ? '9+' : '$notifications',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 9.sp,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+              IconButton(
+                onPressed: onLogoutTap,
+                icon: const Icon(Icons.logout, color: Colors.white),
+              ),
+            ],
+          ),
+          SizedBox(height: 12.h),
+          Text(
+            'Current Time',
+            style: AppTypography.body().copyWith(
+              color: AppColors.subTextOnPrimary,
+              fontSize: 12.sp,
+            ),
+          ),
+          SizedBox(height: 4.h),
+          Text(
+            currentTime,
+            style: AppTypography.display().copyWith(
+              color: Colors.white,
+              fontSize: 30.sp,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _showEndShiftSheet(
+    BuildContext context,
+    WorkerViewModel workerViewModel,
+  ) async {
+    await showModalBottomSheet<void>(
+      context: context,
+      useSafeArea: true,
+      builder: (sheetContext) {
+        return WorkerBottomDualAction(
+          leftLabel: 'Dismiss',
+          rightLabel: 'End Shift',
+          rightVariant: WorkerButtonVariant.danger,
+          onLeftTap: () => Navigator.of(sheetContext).pop(),
+          onRightTap: () async {
+            Navigator.of(sheetContext).pop();
+            final ok = await workerViewModel.endShift(
+              notes: 'Ended from dashboard',
+              hasIncidents: false,
+            );
+            if (!mounted) return;
+            context.read<WorkerPanelViewModel>().syncGeofenceStatus(
+              workerViewModel.currentShift,
+            );
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(ok ? 'Shift ended' : 'Failed to end shift'),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Future<void> _showLogoutSheet(
+    BuildContext context,
+    AuthViewModel authViewModel,
+  ) async {
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) {
+        return LogoutDialog(
+          onDismiss: () => Navigator.of(dialogContext).pop(),
+          onLogout: () {
+            Navigator.of(dialogContext).pop();
+            authViewModel.logout();
+            if (!mounted) return;
+            context.go(Routes.login);
+          },
+        );
+      },
+    );
+  }
+
+  Future<void> _showPhotoEvidenceSheet(
+    BuildContext context,
+    WorkerViewModel workerViewModel,
+  ) async {
+    await showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Colors.white,
+      barrierColor: const Color(0xFF000000),
+      builder: (sheetContext) {
+        return Container(
+          width: double.infinity,
+          padding: EdgeInsets.fromLTRB(16.w, 14.h, 16.w, 18.h),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(16.r)),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'Take Check-in Photo',
+                style: AppTypography.title().copyWith(
+                  fontSize: 16.sp,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              SizedBox(height: 12.h),
+              Container(
+                width: double.infinity,
+                padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 12.h),
+                decoration: BoxDecoration(
+                  color: AppColors.background,
+                  borderRadius: BorderRadius.circular(12.r),
+                  border: Border.all(color: AppColors.infoBorder),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.info_outline,
+                      color: AppColors.primary,
+                      size: 24.sp,
+                    ),
+                    SizedBox(width: 10.w),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Photo evidence required',
+                            style: AppTypography.body().copyWith(
+                              fontWeight: FontWeight.w600,
+                              fontSize: 13.sp,
+                            ),
+                          ),
+                          Text(
+                            'Please take a photo as proof of presence',
+                            style: AppTypography.body().copyWith(
+                              color: AppColors.textSecondary,
+                              fontSize: 11.sp,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              SizedBox(height: 12.h),
+              Container(
+                width: double.infinity,
+                padding: EdgeInsets.symmetric(vertical: 20.h),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF3F4F6),
+                  borderRadius: BorderRadius.circular(12.r),
+                  border: Border.all(color: AppColors.cardBorder),
+                ),
+                child: Column(
+                  children: [
+                    Container(
+                      width: 46.sp,
+                      height: 46.sp,
+                      decoration: const BoxDecoration(
+                        color: Color(0xFFE5E7EB),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(Icons.camera_alt_outlined, size: 24.sp),
+                    ),
+                    SizedBox(height: 10.h),
+                    Text(
+                      'Tap to take photo',
+                      style: AppTypography.body().copyWith(
+                        fontSize: 14.sp,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    SizedBox(height: 4.h),
+                    Text(
+                      'Required for check-in',
+                      style: AppTypography.body().copyWith(
+                        fontSize: 11.sp,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                    SizedBox(height: 2.h),
+                    Text(
+                      'Photo will include timestamp and location',
+                      style: AppTypography.body().copyWith(
+                        fontSize: 11.sp,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              SizedBox(height: 14.h),
+              Row(
+                children: [
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: () => Navigator.of(sheetContext).pop(),
+                      style: ElevatedButton.styleFrom(
+                        elevation: 0,
+                        backgroundColor: const Color(0xFFE5E7EB),
+                        foregroundColor: AppColors.textSecondary,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10.r),
+                        ),
+                        minimumSize: Size.fromHeight(42.h),
+                      ),
+                      child: const Text('Dismiss'),
+                    ),
+                  ),
+                  SizedBox(width: 10.w),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: () async {
+                        final ok = await workerViewModel.submitCheckin(
+                          location: 'Site Geofence',
+                          notes: 'Photo evidence uploaded',
+                          type: 'regular',
+                        );
+                        if (!mounted) return;
+                        Navigator.of(sheetContext).pop();
+                        if (ok) {
+                          context
+                              .read<WorkerPanelViewModel>()
+                              .setGeofenceStatus(true);
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Check-in uploaded successfully'),
+                            ),
+                          );
+                        }
+                      },
+                      style: ElevatedButton.styleFrom(
+                        elevation: 0,
+                        backgroundColor: AppColors.primary,
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10.r),
+                        ),
+                        minimumSize: Size.fromHeight(42.h),
+                      ),
+                      child: const Text('Upload'),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  String _formatClock(DateTime dateTime) {
+    final hour = dateTime.hour > 12
+        ? dateTime.hour - 12
+        : (dateTime.hour == 0 ? 12 : dateTime.hour);
+    final minute = dateTime.minute.toString().padLeft(2, '0');
+    final second = dateTime.second.toString().padLeft(2, '0');
+    final amPm = dateTime.hour >= 12 ? 'PM' : 'AM';
+    return '$hour:$minute:$second $amPm';
+  }
+
+  String _dutyDuration(dynamic start) {
+    final DateTime? startTime = start is DateTime
+        ? start
+        : DateTime.tryParse(start?.toString() ?? '');
+    if (startTime == null) return '00:00:00';
+    final diff = _now.difference(startTime);
+    final hh = diff.inHours.toString().padLeft(2, '0');
+    final mm = (diff.inMinutes % 60).toString().padLeft(2, '0');
+    final ss = (diff.inSeconds % 60).toString().padLeft(2, '0');
+    return '$hh:$mm:$ss';
+  }
+}
+
+class _DashboardMiniAction extends StatelessWidget {
+  const _DashboardMiniAction({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return WorkerPanelCard(
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12.r),
+        child: Padding(
+          padding: EdgeInsets.symmetric(vertical: 8.h),
+          child: Column(
+            children: [
+              Container(
+                padding: EdgeInsets.all(8.sp),
+                decoration: BoxDecoration(
+                  color: AppColors.neutralIconBackground,
+                  borderRadius: BorderRadius.circular(10.r),
+                ),
+                child: Icon(icon, size: 18.sp),
+              ),
+              SizedBox(height: 8.h),
+              Text(
+                label,
+                style: AppTypography.body().copyWith(fontSize: 12.sp),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
