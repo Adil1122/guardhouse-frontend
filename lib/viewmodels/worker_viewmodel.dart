@@ -2,9 +2,7 @@ import 'package:flutter/foundation.dart';
 import '../services/worker_api_service.dart';
 
 class WorkerViewModel extends ChangeNotifier {
-  WorkerViewModel(this._apiService) {
-    _seedFrontendMockData();
-  }
+  WorkerViewModel(this._apiService);
 
   final WorkerApiService _apiService;
 
@@ -21,6 +19,11 @@ class WorkerViewModel extends ChangeNotifier {
   Map<String, dynamic>? _selectedShift;
   List<Map<String, dynamic>> _notifications = [];
   List<Map<String, dynamic>> _recentActivities = [];
+  List<Map<String, dynamic>> _offeredShifts = [];
+  List<Map<String, dynamic>> _checkCalls = [];
+  List<Map<String, dynamic>> _alarmHistory = [];
+  List<Map<String, dynamic>> _liveShifts = [];
+  List<Map<String, dynamic>> _liveAlerts = [];
 
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
@@ -33,6 +36,19 @@ class WorkerViewModel extends ChangeNotifier {
   Map<String, dynamic>? get selectedShift => _selectedShift;
   List<Map<String, dynamic>> get notifications => _notifications;
   List<Map<String, dynamic>> get recentActivities => _recentActivities;
+  List<Map<String, dynamic>> get offeredShifts => _offeredShifts;
+  List<Map<String, dynamic>> get checkCalls => _checkCalls;
+  List<Map<String, dynamic>> get alarmHistory => _alarmHistory;
+  List<Map<String, dynamic>> get liveShifts => _liveShifts;
+  List<Map<String, dynamic>> get liveAlerts => _liveAlerts;
+  bool get hasPendingCheckCall =>
+      _checkCalls.any((c) => (c['status'] ?? '') == 'pending');
+  String? get pendingCheckCallId => _checkCalls
+      .firstWhere(
+        (c) => (c['status'] ?? '') == 'pending',
+        orElse: () => {},
+      )['id']
+      ?.toString();
 
   int get unreadNotifications =>
       _notifications.where((n) => n['read'] != true).length;
@@ -80,7 +96,7 @@ class WorkerViewModel extends ChangeNotifier {
       _ensureFallbackUIData();
     } catch (e) {
       _errorMessage = e.toString();
-      _seedFrontendMockData();
+      _ensureFallbackUIData();
     }
     _setLoading(false);
     notifyListeners();
@@ -521,7 +537,7 @@ class WorkerViewModel extends ChangeNotifier {
   }
 
   void _seedFrontendMockData() {
-    _availableSites = _mockSites();
+    _availableSites = _availableSites.isEmpty ? _mockSites() : _availableSites;
     _notifications = _notifications.isEmpty
         ? _mockNotifications()
         : _notifications;
@@ -763,4 +779,270 @@ class WorkerViewModel extends ChangeNotifier {
       'timestamp': DateTime.now().subtract(const Duration(minutes: 20)),
     },
   ];
+
+  // ── Offered Shifts ────────────────────────────────────────────────────────
+
+  Future<void> loadOfferedShifts() async {
+    _setLoading(true);
+    if (_frontendOnlyMode) {
+      _offeredShifts = _mockOfferedShifts();
+      _setLoading(false);
+      notifyListeners();
+      return;
+    }
+    try {
+      final list = await _apiService.getOfferedShifts();
+      _offeredShifts = list.isEmpty ? _mockOfferedShifts() : list;
+    } catch (e) {
+      _offeredShifts = _mockOfferedShifts();
+    }
+    _setLoading(false);
+    notifyListeners();
+  }
+
+  Future<bool> acceptShift(String shiftId) async {
+    if (_frontendOnlyMode) {
+      _offeredShifts.removeWhere((s) => s['id'].toString() == shiftId);
+      notifyListeners();
+      return true;
+    }
+    try {
+      final ok = await _apiService.acceptShift(shiftId);
+      if (ok) await loadOfferedShifts();
+      return ok;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  Future<bool> declineShift(String shiftId) async {
+    if (_frontendOnlyMode) {
+      _offeredShifts.removeWhere((s) => s['id'].toString() == shiftId);
+      notifyListeners();
+      return true;
+    }
+    try {
+      final ok = await _apiService.declineShift(shiftId);
+      if (ok) await loadOfferedShifts();
+      return ok;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  // ── Check Calls ───────────────────────────────────────────────────────────
+
+  Future<void> loadCheckCalls() async {
+    _setLoading(true);
+    if (_frontendOnlyMode) {
+      _checkCalls = _mockCheckCalls();
+      _setLoading(false);
+      notifyListeners();
+      return;
+    }
+    try {
+      final list = await _apiService.getCheckCalls();
+      _checkCalls = list.isEmpty ? _mockCheckCalls() : list;
+    } catch (e) {
+      _checkCalls = _mockCheckCalls();
+    }
+    _setLoading(false);
+    notifyListeners();
+  }
+
+  Future<bool> respondToCheckCall(String id) async {
+    if (_frontendOnlyMode) {
+      final idx = _checkCalls.indexWhere((c) => c['id'].toString() == id);
+      if (idx != -1) _checkCalls[idx]['status'] = 'responded';
+      notifyListeners();
+      return true;
+    }
+    try {
+      final ok = await _apiService.respondToCheckCall(id);
+      if (ok) await loadCheckCalls();
+      return ok;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  // ── Alarm History ─────────────────────────────────────────────────────────
+
+  Future<void> loadAlarmHistory() async {
+    _setLoading(true);
+    if (_frontendOnlyMode) {
+      _alarmHistory = _mockAlarmHistory();
+      _setLoading(false);
+      notifyListeners();
+      return;
+    }
+    try {
+      final list = await _apiService.getAlarmHistory();
+      _alarmHistory = list.isEmpty ? _mockAlarmHistory() : list;
+    } catch (e) {
+      _alarmHistory = _mockAlarmHistory();
+    }
+    _setLoading(false);
+    notifyListeners();
+  }
+
+  Future<bool> raiseAlarm() async {
+    if (_frontendOnlyMode) {
+      _alarmHistory.insert(0, {
+        'id': 'alarm_${DateTime.now().millisecondsSinceEpoch}',
+        'type': 'Emergency Alarm',
+        'timestamp': _nowLabel(),
+        'status': 'raised',
+      });
+      notifyListeners();
+      return true;
+    }
+    try {
+      final ok = await _apiService.raiseAlarm({'type': 'emergency'});
+      if (ok) await loadAlarmHistory();
+      return ok;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  // ── Live Operations ───────────────────────────────────────────────────────
+
+  Future<void> loadLiveOperations() async {
+    _setLoading(true);
+    if (_frontendOnlyMode) {
+      _setMockLiveOperations();
+      _setLoading(false);
+      notifyListeners();
+      return;
+    }
+    try {
+      final response = await _apiService.getLiveOperations();
+      final shifts = response['shifts'] ?? response['data'] ?? [];
+      final alerts = response['alerts'] ?? [];
+      _liveShifts = List<Map<String, dynamic>>.from(shifts);
+      _liveAlerts = List<Map<String, dynamic>>.from(alerts);
+      if (_liveShifts.isEmpty) _setMockLiveOperations();
+    } catch (e) {
+      _setMockLiveOperations();
+    }
+    _setLoading(false);
+    notifyListeners();
+  }
+
+  // ── Helpers ───────────────────────────────────────────────────────────────
+
+  String _nowLabel() {
+    final now = DateTime.now();
+    final h =
+        now.hour > 12 ? now.hour - 12 : (now.hour == 0 ? 12 : now.hour);
+    final m = now.minute.toString().padLeft(2, '0');
+    final amPm = now.hour >= 12 ? 'PM' : 'AM';
+    return 'Today, $h:$m $amPm';
+  }
+
+  // ── Mock data ─────────────────────────────────────────────────────────────
+
+  List<Map<String, dynamic>> _mockOfferedShifts() => [
+    {
+      'id': 'offered_1',
+      'siteName': 'Harbour View Office Park',
+      'site_name': 'Harbour View Office Park',
+      'date': 'Jun 12, Thu',
+      'time': '18:00 – 06:00',
+      'hours': '12 hrs',
+      'payNote': 'Night rate applies',
+    },
+    {
+      'id': 'offered_2',
+      'siteName': 'Westgate Industrial Estate',
+      'site_name': 'Westgate Industrial Estate',
+      'date': 'Jun 14, Sat',
+      'time': '08:00 – 20:00',
+      'hours': '12 hrs',
+      'payNote': 'Weekend rate applies',
+    },
+    {
+      'id': 'offered_3',
+      'siteName': 'City Centre Plaza',
+      'site_name': 'City Centre Plaza',
+      'date': 'Jun 15, Sun',
+      'time': '06:00 – 14:00',
+      'hours': '8 hrs',
+      'payNote': 'Standard rate',
+    },
+  ];
+
+  List<Map<String, dynamic>> _mockCheckCalls() => [
+    {'id': 'check_pending', 'timestamp': 'Today, 14:30', 'status': 'pending'},
+    {'id': 'check_1', 'timestamp': 'Today, 12:00', 'status': 'responded'},
+    {'id': 'check_2', 'timestamp': 'Today, 08:00', 'status': 'responded'},
+    {'id': 'check_3', 'timestamp': 'Yesterday, 22:00', 'status': 'missed'},
+  ];
+
+  List<Map<String, dynamic>> _mockAlarmHistory() => [
+    {
+      'id': 'alarm_1',
+      'type': 'Emergency Alarm',
+      'timestamp': 'Today, 14:32',
+      'status': 'acknowledged',
+    },
+    {
+      'id': 'alarm_2',
+      'type': 'Welfare Check Alarm',
+      'timestamp': 'Yesterday, 22:15',
+      'status': 'resolved',
+    },
+    {
+      'id': 'alarm_3',
+      'type': 'Emergency Alarm',
+      'timestamp': 'Jun 07, 09:04',
+      'status': 'resolved',
+    },
+  ];
+
+  void _setMockLiveOperations() {
+    _liveShifts = [
+      {
+        'id': 's1',
+        'name': 'James Mwangi',
+        'role': 'Security Officer',
+        'hours': '06:00–18:00',
+        'status': 'clocked-in',
+      },
+      {
+        'id': 's2',
+        'name': 'Sarah Otieno',
+        'role': 'Security Officer',
+        'hours': '06:00–18:00',
+        'status': 'checking-welfare',
+      },
+      {
+        'id': 's3',
+        'name': 'Brian Kamau',
+        'role': 'Supervisor',
+        'hours': '07:00–19:00',
+        'status': 'clocked-in',
+      },
+      {
+        'id': 's4',
+        'name': 'Grace Njeri',
+        'role': 'Security Officer',
+        'hours': '18:00–06:00',
+        'status': 'missed-alert',
+      },
+    ];
+    _liveAlerts = [
+      {
+        'title': 'Inactivity Warning',
+        'message': "Sarah Otieno hasn't checked in for 45 minutes",
+        'variant': 'warning',
+      },
+      {
+        'title': 'Missed Beep Alert',
+        'message': 'Grace Njeri missed welfare check at 20:00',
+        'variant': 'danger',
+      },
+    ];
+  }
 }

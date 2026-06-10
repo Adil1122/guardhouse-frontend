@@ -37,9 +37,9 @@ class _SiteVisitOnScreenState extends State<SiteVisitOnScreen> {
         ? (sites[0]['address'] ?? '123 Main Street, City')
         : '123 Main Street, City';
     final workersCount = sites.isNotEmpty
-        ? (sites[0]['workersCount']?.toString() ?? '5')
-        : '5';
-    final siteId = sites.isNotEmpty ? (sites[0]['id']?.toString() ?? '1') : '1';
+        ? (sites[0]['assigned_workers']?.toString() ?? sites[0]['workersCount']?.toString() ?? '0')
+        : '0';
+    final siteId = sites.isNotEmpty ? sites[0]['id']?.toString() : null;
 
     return SupervisorPanelScaffold(
       title: 'Site Visit',
@@ -52,12 +52,10 @@ class _SiteVisitOnScreenState extends State<SiteVisitOnScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   _buildOffSiteBanner(
-                    onTap: () => _startSiteVisit(
+                    onTap: siteId == null ? null : () => _startSiteVisit(
                       viewModel: supervisorViewModel,
                       siteId: siteId,
-                      siteAddress: sites.isNotEmpty
-                          ? siteAddress
-                          : '123 Main Street, City Center, NY 10001',
+                      siteAddress: siteAddress,
                     ),
                   ),
                   SizedBox(height: 16.h),
@@ -194,9 +192,10 @@ class _SiteVisitOnScreenState extends State<SiteVisitOnScreen> {
 
   Future<void> _startSiteVisit({
     required SupervisorViewModel viewModel,
-    required String siteId,
+    required String? siteId,
     required String siteAddress,
   }) async {
+    if (siteId == null) return;
     if (_isStartingVisit) return;
     setState(() => _isStartingVisit = true);
 
@@ -209,7 +208,7 @@ class _SiteVisitOnScreenState extends State<SiteVisitOnScreen> {
     );
   }
 
-  Widget _buildOffSiteBanner({required VoidCallback onTap}) {
+  Widget _buildOffSiteBanner({required VoidCallback? onTap}) {
     return Material(
       color: Colors.transparent,
       child: InkWell(

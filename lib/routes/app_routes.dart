@@ -23,6 +23,18 @@ import '../views/worker/worker_notifications_screen.dart';
 import '../views/worker/enhanced_checkin_screen.dart';
 import '../views/worker/enhanced_duty_history_screen.dart';
 import '../views/worker/checkin_history_screen.dart';
+import '../views/worker/worker_ops_live_screen.dart';
+import '../views/supervisor/supervisor_officers_screen.dart';
+import '../views/supervisor/supervisor_activity_sheet_screen.dart';
+import '../views/supervisor/supervisor_checkin_screen.dart';
+import '../views/supervisor/supervisor_qr_scan_screen.dart';
+import '../views/supervisor/supervisor_alarm_call_screen.dart';
+import '../views/worker/worker_qr_scan_screen.dart';
+import '../views/worker/worker_alarm_call_screen.dart';
+import '../views/worker/worker_my_shifts_screen.dart';
+import '../views/worker/worker_offered_shifts_screen.dart';
+import '../views/worker/worker_check_call_screen.dart';
+import '../views/worker/worker_checkin_screen.dart';
 
 // Supervisor screens
 import '../views/supervisor/supervisor_dashboard_screen.dart';
@@ -126,11 +138,11 @@ GoRouter createAppRouter(
       ),
       GoRoute(
         path: '/worker/checkin',
-        builder: (context, state) => const CheckinScreen(),
+        builder: (context, state) => const WorkerCheckinScreen(),
       ),
       GoRoute(
         path: '/worker/enhanced-checkin',
-        builder: (context, state) => const EnhancedCheckinScreen(),
+        builder: (context, state) => const WorkerCheckinScreen(),
       ),
       GoRoute(
         path: '/worker/history',
@@ -162,6 +174,30 @@ GoRouter createAppRouter(
         path: '/worker/notifications',
         builder: (context, state) => const WorkerNotificationsScreen(),
       ),
+      GoRoute(
+        path: '/worker/ops-live',
+        builder: (context, state) => const WorkerOpsLiveScreen(),
+      ),
+      GoRoute(
+        path: '/worker/qr-scan',
+        builder: (context, state) => const WorkerQrScanScreen(),
+      ),
+      GoRoute(
+        path: '/worker/alarm-call',
+        builder: (context, state) => const WorkerAlarmCallScreen(),
+      ),
+      GoRoute(
+        path: '/worker/my-shifts',
+        builder: (context, state) => const WorkerMyShiftsScreen(),
+      ),
+      GoRoute(
+        path: '/worker/offered-shifts',
+        builder: (context, state) => const WorkerOfferedShiftsScreen(),
+      ),
+      GoRoute(
+        path: '/worker/check-call',
+        builder: (context, state) => const WorkerCheckCallScreen(),
+      ),
 
       // Supervisor
       GoRoute(
@@ -190,6 +226,26 @@ GoRouter createAppRouter(
       GoRoute(
         path: '/supervisor/notifications',
         builder: (context, state) => const SupervisorNotificationsScreen(),
+      ),
+      GoRoute(
+        path: '/supervisor/officers',
+        builder: (context, state) => const SupervisorOfficersScreen(),
+      ),
+      GoRoute(
+        path: '/supervisor/activity-sheet',
+        builder: (context, state) => const SupervisorActivitySheetScreen(),
+      ),
+      GoRoute(
+        path: '/supervisor/checkin',
+        builder: (context, state) => const SupervisorCheckinScreen(),
+      ),
+      GoRoute(
+        path: '/supervisor/qr-scan',
+        builder: (context, state) => const SupervisorQrScanScreen(),
+      ),
+      GoRoute(
+        path: '/supervisor/alarm-call',
+        builder: (context, state) => const SupervisorAlarmCallScreen(),
       ),
 
       // Admin

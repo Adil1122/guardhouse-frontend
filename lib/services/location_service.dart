@@ -171,20 +171,19 @@ class LocationService {
   GeofenceStatus getGeofenceStatus({
     required Map<String, dynamic> geofence,
   }) {
-    if (_currentPosition == null || 
-        !geofence.containsKey('latitude') || 
-        !geofence.containsKey('longitude')) {
+    final hasCenterCoords = geofence.containsKey('lat') || geofence.containsKey('latitude');
+    if (_currentPosition == null || !hasCenterCoords) {
       return GeofenceStatus(
         insideGeofence: false,
         distanceFromSite: null,
-        checkInDistance: geofence['radius']?.toDouble() ?? 100.0,
+        checkInDistance: (geofence['check_in_distance'] ?? geofence['radius'])?.toDouble() ?? 100.0,
         status: 'invalid_geofence',
       );
     }
 
-    final double centerLat = double.parse(geofence['latitude'].toString());
-    final double centerLon = double.parse(geofence['longitude'].toString());
-    final double checkInDistance = (geofence['radius']?.toDouble() ?? 100.0);
+    final double centerLat = double.parse((geofence['lat'] ?? geofence['latitude']).toString());
+    final double centerLon = double.parse((geofence['lon'] ?? geofence['longitude']).toString());
+    final double checkInDistance = (geofence['check_in_distance'] ?? geofence['radius'])?.toDouble() ?? 100.0;
 
     final double distance = calculateDistance(
       _currentPosition!.latitude,

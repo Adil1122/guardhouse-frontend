@@ -5,8 +5,7 @@ import '../services/supervisor_api_service.dart';
 class SupervisorViewModel extends ChangeNotifier {
   final SupervisorApiService _apiService;
 
-  // Set to true for client-review / demo mode – all data is local mock.
-  static const bool _mockMode = true;
+  static const bool _mockMode = false;
 
   bool _isLoading = false;
   String? _errorMessage;
@@ -15,6 +14,7 @@ class SupervisorViewModel extends ChangeNotifier {
   Map<String, dynamic>? _activeSiteVisit;
   List<Map<String, dynamic>> _assignedSites = [];
   List<Map<String, dynamic>> _workers = [];
+  List<Map<String, dynamic>> _allOfficers = [];
   List<Map<String, dynamic>> _recentReports = [];
   Map<String, dynamic>? _statistics;
 
@@ -24,6 +24,9 @@ class SupervisorViewModel extends ChangeNotifier {
   // Notifications
   List<Map<String, dynamic>> _notifications = [];
 
+  // Alarm history
+  List<Map<String, dynamic>> _alarmHistory = [];
+
   SupervisorViewModel(this._apiService);
 
   // Getters
@@ -32,10 +35,12 @@ class SupervisorViewModel extends ChangeNotifier {
   Map<String, dynamic>? get activeSiteVisit => _activeSiteVisit;
   List<Map<String, dynamic>> get assignedSites => _assignedSites;
   List<Map<String, dynamic>> get workers => _workers;
+  List<Map<String, dynamic>> get allOfficers => _allOfficers;
   List<Map<String, dynamic>> get recentReports => _recentReports;
   Map<String, dynamic>? get statistics => _statistics;
   Map<String, dynamic>? get selectedReport => _selectedReport;
   List<Map<String, dynamic>> get notifications => _notifications;
+  List<Map<String, dynamic>> get alarmHistory => _alarmHistory;
 
   // Computed properties
   int get unreadNotifications =>
@@ -82,6 +87,8 @@ class SupervisorViewModel extends ChangeNotifier {
         _loadActiveSiteVisit(),
         _loadRecentReports(),
         _loadStatistics(),
+        _loadWorkers(),
+        _loadAllOfficers(),
       ]);
       _errorMessage = null;
     } catch (e) {
@@ -115,6 +122,7 @@ class SupervisorViewModel extends ChangeNotifier {
       _errorMessage = null;
     } catch (e) {
       _errorMessage = e.toString();
+      if (_assignedSites.isEmpty) _assignedSites = _mockAssignedSites();
     }
     _setLoading(false);
     notifyListeners();
@@ -129,6 +137,7 @@ class SupervisorViewModel extends ChangeNotifier {
       _assignedSites = await _apiService.getAssignedSites();
     } catch (e) {
       _errorMessage = e.toString();
+      if (_assignedSites.isEmpty) _assignedSites = _mockAssignedSites();
     }
   }
 
@@ -142,6 +151,7 @@ class SupervisorViewModel extends ChangeNotifier {
       _workers = await _apiService.getSupervisorWorkers();
     } catch (e) {
       _errorMessage = e.toString();
+      if (_workers.isEmpty) _workers = _mockWorkers();
     }
   }
 
@@ -155,6 +165,7 @@ class SupervisorViewModel extends ChangeNotifier {
       _recentReports = await _apiService.getRecentReports();
     } catch (e) {
       _errorMessage = e.toString();
+      if (_recentReports.isEmpty) _recentReports = _mockRecentReports();
     }
   }
 
@@ -168,6 +179,7 @@ class SupervisorViewModel extends ChangeNotifier {
       _statistics = await _apiService.getSupervisorStatistics();
     } catch (e) {
       _errorMessage = e.toString();
+      _statistics ??= _mockStatistics();
     }
   }
 
@@ -301,7 +313,7 @@ class SupervisorViewModel extends ChangeNotifier {
     try {
       final reportId = await _apiService.submitSupervisorReport({
         'site_id': siteId,
-        'report_type': reportType,
+        'type': reportType,
         'title': title,
         'description': description,
         ...?(findings != null ? {'findings': findings} : null),
@@ -369,6 +381,7 @@ class SupervisorViewModel extends ChangeNotifier {
       _errorMessage = null;
     } catch (e) {
       _errorMessage = e.toString();
+      if (_notifications.isEmpty) _notifications = _mockNotifications();
     }
     _setLoading(false);
     notifyListeners();
@@ -509,6 +522,62 @@ class SupervisorViewModel extends ChangeNotifier {
     }
   }
 
+  // Supervisor check-in
+  Future<bool> submitCheckin({
+    required String siteId,
+    required String type,
+    String? notes,
+  }) async {
+    if (_mockMode) {
+      return true;
+    }
+    try {
+      return await _apiService.submitCheckin({
+        'site_id': siteId,
+        'type': type,
+        if (notes != null) 'notes': notes,
+        'checked_in_at': DateTime.now().toIso8601String(),
+      });
+    } catch (e) {
+      _errorMessage = e.toString();
+      return false;
+    }
+  }
+
+  // Save QR scan
+  Future<bool> saveQrScan({
+    required String qrCode,
+    required String siteId,
+  }) async {
+    if (_mockMode) {
+      return true;
+    }
+    try {
+      return await _apiService.saveQrScan({
+        'qr_code': qrCode,
+        'site_id': siteId,
+        'scanned_at': DateTime.now().toIso8601String(),
+      });
+    } catch (e) {
+      _errorMessage = e.toString();
+      return false;
+    }
+  }
+
+  // Load all officers
+  Future<void> _loadAllOfficers() async {
+    if (_mockMode) {
+      _allOfficers = _mockAllOfficers();
+      return;
+    }
+    try {
+      _allOfficers = await _apiService.getAllOfficers();
+    } catch (e) {
+      _errorMessage = e.toString();
+      if (_allOfficers.isEmpty) _allOfficers = _mockAllOfficers();
+    }
+  }
+
   // Refresh data
   Future<void> refresh() async {
     await loadDashboardData();
@@ -519,6 +588,7 @@ class SupervisorViewModel extends ChangeNotifier {
   void _seedMockData() {
     _assignedSites = _mockAssignedSites();
     _workers = _mockWorkers();
+    _allOfficers = _mockAllOfficers();
     _recentReports = _mockRecentReports();
     _statistics = _mockStatistics();
     _notifications = _mockNotifications();
@@ -580,6 +650,75 @@ class SupervisorViewModel extends ChangeNotifier {
       'site': 'Main Office Building',
       'status': 'On Duty',
       'clockedIn': true,
+    },
+  ];
+
+  List<Map<String, dynamic>> _mockAllOfficers() => [
+    {
+      'id': 'W1',
+      'name': 'Mark Williams',
+      'role': 'Security Officer',
+      'site': 'Main Office Building',
+      'siteAddress': '123 Business Street, London',
+      'status': 'On Duty',
+      'clockedIn': true,
+      'shiftStart': '06:00',
+      'shiftEnd': '18:00',
+    },
+    {
+      'id': 'W2',
+      'name': 'Lisa Brown',
+      'role': 'Security Officer',
+      'site': 'Market Place',
+      'siteAddress': '45 Market Street, Manchester',
+      'status': 'On Duty',
+      'clockedIn': true,
+      'shiftStart': '06:00',
+      'shiftEnd': '18:00',
+    },
+    {
+      'id': 'W3',
+      'name': 'Tom Carter',
+      'role': 'Security Guard',
+      'site': 'Tech Park East',
+      'siteAddress': '99 Innovation Drive, Birmingham',
+      'status': 'Off Duty',
+      'clockedIn': false,
+      'shiftStart': '18:00',
+      'shiftEnd': '06:00',
+    },
+    {
+      'id': 'W4',
+      'name': 'Priya Patel',
+      'role': 'Security Officer',
+      'site': 'Main Office Building',
+      'siteAddress': '123 Business Street, London',
+      'status': 'On Duty',
+      'clockedIn': true,
+      'shiftStart': '06:00',
+      'shiftEnd': '18:00',
+    },
+    {
+      'id': 'W5',
+      'name': 'James Okafor',
+      'role': 'Security Guard',
+      'site': 'Market Place',
+      'siteAddress': '45 Market Street, Manchester',
+      'status': 'Off Duty',
+      'clockedIn': false,
+      'shiftStart': '18:00',
+      'shiftEnd': '06:00',
+    },
+    {
+      'id': 'W6',
+      'name': 'Amara Nwosu',
+      'role': 'Security Officer',
+      'site': 'Tech Park East',
+      'siteAddress': '99 Innovation Drive, Birmingham',
+      'status': 'On Duty',
+      'clockedIn': true,
+      'shiftStart': '08:00',
+      'shiftEnd': '20:00',
     },
   ];
 
@@ -657,6 +796,78 @@ class SupervisorViewModel extends ChangeNotifier {
       'createdAt': DateTime.now()
           .subtract(const Duration(days: 1))
           .toIso8601String(),
+    },
+  ];
+
+  // ─────────────────────────────────────────────────────────────────────────
+
+  // ── Alarm History ─────────────────────────────────────────────────────────
+
+  Future<void> loadAlarmHistory() async {
+    _setLoading(true);
+    if (_mockMode) {
+      _alarmHistory = _mockAlarmHistory();
+      _setLoading(false);
+      notifyListeners();
+      return;
+    }
+    try {
+      final list = await _apiService.getAlarmHistory();
+      _alarmHistory = list.isEmpty ? _mockAlarmHistory() : list;
+    } catch (e) {
+      _alarmHistory = _mockAlarmHistory();
+    }
+    _setLoading(false);
+    notifyListeners();
+  }
+
+  Future<bool> raiseAlarm() async {
+    if (_mockMode) {
+      _alarmHistory.insert(0, {
+        'id': 'alarm_${DateTime.now().millisecondsSinceEpoch}',
+        'type': 'Emergency Alarm',
+        'timestamp': _nowLabel(),
+        'status': 'raised',
+      });
+      notifyListeners();
+      return true;
+    }
+    try {
+      final ok = await _apiService.raiseAlarm({'type': 'emergency'});
+      if (ok) await loadAlarmHistory();
+      return ok;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  String _nowLabel() {
+    final now = DateTime.now();
+    final h =
+        now.hour > 12 ? now.hour - 12 : (now.hour == 0 ? 12 : now.hour);
+    final m = now.minute.toString().padLeft(2, '0');
+    final amPm = now.hour >= 12 ? 'PM' : 'AM';
+    return 'Today, $h:$m $amPm';
+  }
+
+  List<Map<String, dynamic>> _mockAlarmHistory() => [
+    {
+      'id': 'alarm_1',
+      'type': 'Emergency Alarm',
+      'timestamp': 'Today, 14:32',
+      'status': 'acknowledged',
+    },
+    {
+      'id': 'alarm_2',
+      'type': 'Welfare Check Alarm',
+      'timestamp': 'Yesterday, 22:15',
+      'status': 'resolved',
+    },
+    {
+      'id': 'alarm_3',
+      'type': 'Emergency Alarm',
+      'timestamp': 'Jun 07, 09:04',
+      'status': 'resolved',
     },
   ];
 

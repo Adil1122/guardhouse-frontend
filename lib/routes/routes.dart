@@ -15,6 +15,12 @@ class Routes {
   static const workerHistory = '/worker/history';
   static const workerShiftDetails = '/worker/shift-details';
   static const workerNotifications = '/worker/notifications';
+  static const workerOpsLive = '/worker/ops-live';
+  static const workerQrScan = '/worker/qr-scan';
+  static const workerAlarmCall = '/worker/alarm-call';
+  static const workerMyShifts = '/worker/my-shifts';
+  static const workerOfferedShifts = '/worker/offered-shifts';
+  static const workerCheckCall = '/worker/check-call';
 
   // Supervisor
   static const supervisor = '/supervisor';
@@ -23,6 +29,11 @@ class Routes {
   static const supervisorReportForm = '/supervisor/report-form';
   static const supervisorReportConfirmation = '/supervisor/report-confirmation';
   static const supervisorNotifications = '/supervisor/notifications';
+  static const supervisorOfficers = '/supervisor/officers';
+  static const supervisorActivitySheet = '/supervisor/activity-sheet';
+  static const supervisorCheckin = '/supervisor/checkin';
+  static const supervisorQrScan = '/supervisor/qr-scan';
+  static const supervisorAlarmCall = '/supervisor/alarm-call';
 
   // Admin
   static const admin = '/admin';

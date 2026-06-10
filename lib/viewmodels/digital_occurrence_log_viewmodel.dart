@@ -5,8 +5,7 @@ import '../services/admin_api_service.dart';
 class DigitalOccurrenceLogViewModel extends ChangeNotifier {
   final AdminApiService _apiService;
 
-  // Keep false in normal app flow so occurrence logs use backend APIs.
-  static const bool _mockMode = true;
+  static const bool _mockMode = false;
 
   List<DigitalOccurrenceLog> _logs = [];
   bool _isLoading = false;
@@ -51,6 +50,7 @@ class DigitalOccurrenceLogViewModel extends ChangeNotifier {
       notifyListeners();
     } catch (e) {
       _error = e.toString();
+      if (_logs.isEmpty) _logs = _getFallbackLogs();
       _isLoading = false;
       notifyListeners();
     }

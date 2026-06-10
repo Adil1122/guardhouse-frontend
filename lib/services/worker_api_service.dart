@@ -212,4 +212,82 @@ class WorkerApiService extends ApiService {
       return false;
     }
   }
+
+  Future<List<Map<String, dynamic>>> getOfferedShifts() async {
+    try {
+      final response = await dio.get('worker/offered-shifts');
+      return List<Map<String, dynamic>>.from(
+        response.data['shifts'] ?? response.data['data'] ?? [],
+      );
+    } catch (e) {
+      return [];
+    }
+  }
+
+  Future<bool> acceptShift(String shiftId) async {
+    try {
+      final response = await dio.post('worker/shifts/$shiftId/accept', data: {});
+      return response.statusCode == 200 || response.statusCode == 201;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  Future<bool> declineShift(String shiftId) async {
+    try {
+      final response = await dio.post('worker/shifts/$shiftId/decline', data: {});
+      return response.statusCode == 200 || response.statusCode == 201;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> getCheckCalls() async {
+    try {
+      final response = await dio.get('worker/check-calls');
+      return List<Map<String, dynamic>>.from(
+        response.data['check_calls'] ?? response.data['data'] ?? [],
+      );
+    } catch (e) {
+      return [];
+    }
+  }
+
+  Future<bool> respondToCheckCall(String id) async {
+    try {
+      final response = await dio.post('worker/check-calls/$id/respond', data: {});
+      return response.statusCode == 200 || response.statusCode == 201;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> getAlarmHistory() async {
+    try {
+      final response = await dio.get('worker/alarms');
+      return List<Map<String, dynamic>>.from(
+        response.data['alarms'] ?? response.data['data'] ?? [],
+      );
+    } catch (e) {
+      return [];
+    }
+  }
+
+  Future<bool> raiseAlarm(Map<String, dynamic> data) async {
+    try {
+      final response = await dio.post('worker/alarms', data: data);
+      return response.statusCode == 200 || response.statusCode == 201;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  Future<Map<String, dynamic>> getLiveOperations() async {
+    try {
+      final response = await dio.get('live-operations');
+      return response.data is Map ? Map<String, dynamic>.from(response.data) : {};
+    } catch (e) {
+      return {};
+    }
+  }
 }

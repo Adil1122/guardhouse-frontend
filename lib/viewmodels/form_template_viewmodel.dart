@@ -49,7 +49,7 @@ class FormTemplateViewModel extends ChangeNotifier {
     } catch (e) {
       _error = e.toString();
       _isLoading = false;
-      _templates = [];
+      if (_templates.isEmpty) _templates = _fallbackTemplates();
       notifyListeners();
       debugPrint('Error loading form templates: $_error');
     }

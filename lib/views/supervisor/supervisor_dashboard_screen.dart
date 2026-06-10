@@ -115,6 +115,48 @@ class _SupervisorDashboardScreenState extends State<SupervisorDashboardScreen> {
                         padding: EdgeInsets.symmetric(horizontal: 16.w),
                         child: Column(
                           children: [
+                            _buildActionCard(
+                              icon: Icons.login,
+                              iconBg: const Color(0xFF0E45BA),
+                              title: 'Clock In',
+                              subtitle: 'Check in to your current site as supervisor',
+                              onTap: () => context.push(Routes.supervisorCheckin),
+                            ),
+                            _buildActionCard(
+                              icon: Icons.live_tv,
+                              iconBg: const Color(0xFF0E45BA),
+                              title: 'Ops Live',
+                              subtitle: 'Monitor real-time shift status & operations',
+                              onTap: () => context.push(Routes.adminLiveOperations),
+                            ),
+                            _buildActionCard(
+                              icon: Icons.qr_code_scanner,
+                              iconBg: const Color(0xFF0E45BA),
+                              title: 'Scan QR',
+                              subtitle: 'Scan site checkpoint QR code to log presence',
+                              onTap: () => context.push(Routes.supervisorQrScan),
+                            ),
+                            _buildActionCard(
+                              icon: Icons.campaign_outlined,
+                              iconBg: const Color(0xFFDC2626),
+                              title: 'Alarm Call',
+                              subtitle: 'Raise an emergency alarm – admin & operators notified',
+                              onTap: () => context.push(Routes.supervisorAlarmCall),
+                            ),
+                            _buildActionCard(
+                              icon: Icons.people_outline,
+                              iconBg: const Color(0xFF0E45BA),
+                              title: 'Officers Details',
+                              subtitle: 'View all assigned officers & their duty status',
+                              onTap: () => context.push(Routes.supervisorOfficers),
+                            ),
+                            _buildActionCard(
+                              icon: Icons.event_note_outlined,
+                              iconBg: const Color(0xFF0E45BA),
+                              title: 'Activity Sheet',
+                              subtitle: 'Browse patrol reports & recent site activities',
+                              onTap: () => context.push(Routes.supervisorActivitySheet),
+                            ),
                             if (_hasPrivilege(privileges, 'staff', 'list'))
                               _buildActionCard(
                                 icon: Icons.badge_outlined,

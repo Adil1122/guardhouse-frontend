@@ -8,7 +8,6 @@ plugins {
 android {
     namespace = "com.example.security_app"
     compileSdk = 36
-    ndkVersion = "27.0.12077973"
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
@@ -47,13 +46,11 @@ val flutterApkOutputDir = rootProject.projectDir.resolve("../build/app/outputs/f
 tasks.register<Copy>("copyNamedDebugApkToFlutterOutput") {
     from(layout.buildDirectory.file("outputs/apk/debug/app-debug.apk"))
     into(flutterApkOutputDir)
-    rename { "The Guard House-debug.apk" }
 }
 
 tasks.register<Copy>("copyNamedReleaseApkToFlutterOutput") {
     from(layout.buildDirectory.file("outputs/apk/release/app-release.apk"))
     into(flutterApkOutputDir)
-    rename { "The Guard House-release.apk" }
 }
 
 tasks.configureEach {

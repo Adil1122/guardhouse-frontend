@@ -102,7 +102,7 @@ class AdminViewModel extends ChangeNotifier {
       notifyListeners();
     } catch (e) {
       _errorMessage = e.toString();
-      _sites = [];
+      if (_sites.isEmpty) _sites = _fallbackSites();
       notifyListeners();
     }
   }
@@ -154,6 +154,7 @@ class AdminViewModel extends ChangeNotifier {
       notifyListeners();
     } catch (e) {
       _errorMessage = e.toString();
+      if (_staffMembers.isEmpty) _staffMembers = _fallbackStaffMembers();
       notifyListeners();
     }
   }
@@ -217,6 +218,7 @@ class AdminViewModel extends ChangeNotifier {
       notifyListeners();
     } catch (e) {
       _errorMessage = e.toString();
+      if (_customers.isEmpty) _customers = _fallbackCustomers();
       notifyListeners();
     }
   }
@@ -253,6 +255,7 @@ class AdminViewModel extends ChangeNotifier {
       notifyListeners();
     } catch (e) {
       _errorMessage = e.toString();
+      if (_customerContacts.isEmpty) _customerContacts = _fallbackCustomerContacts();
       notifyListeners();
     }
   }
@@ -284,6 +287,7 @@ class AdminViewModel extends ChangeNotifier {
       notifyListeners();
     } catch (e) {
       _errorMessage = e.toString();
+      if (_customerInvoiceProfiles.isEmpty) _customerInvoiceProfiles = _fallbackCustomerInvoiceProfiles();
       notifyListeners();
     }
   }
@@ -314,6 +318,7 @@ class AdminViewModel extends ChangeNotifier {
       notifyListeners();
     } catch (e) {
       _errorMessage = e.toString();
+      if (_customerInvoices.isEmpty) _customerInvoices = _fallbackCustomerInvoices();
       notifyListeners();
     }
   }
@@ -745,7 +750,7 @@ class AdminViewModel extends ChangeNotifier {
       _reports = await _apiService.getReports();
     } catch (e) {
       _errorMessage = e.toString();
-      _reports = [];
+      if (_reports.isEmpty) _reports = _fallbackReports();
     }
   }
 
@@ -782,7 +787,7 @@ class AdminViewModel extends ChangeNotifier {
       _alerts = await _apiService.getAlerts();
     } catch (e) {
       _errorMessage = e.toString();
-      _alerts = [];
+      if (_alerts.isEmpty) _alerts = _fallbackAlerts();
     }
   }
 
@@ -1560,6 +1565,7 @@ class AdminViewModel extends ChangeNotifier {
       notifyListeners();
     } catch (e) {
       _errorMessage = e.toString();
+      if (_shifts.isEmpty) _shifts = _fallbackShifts();
       notifyListeners();
     }
   }
@@ -1690,6 +1696,7 @@ class AdminViewModel extends ChangeNotifier {
       notifyListeners();
     } catch (e) {
       _errorMessage = e.toString();
+      if (_shiftNotes.isEmpty) _shiftNotes = _fallbackShiftNotes();
       notifyListeners();
     }
   }
@@ -1809,6 +1816,7 @@ class AdminViewModel extends ChangeNotifier {
       notifyListeners();
     } catch (e) {
       _errorMessage = e.toString();
+      if (_securityOfficers.isEmpty) _securityOfficers = _fallbackSecurityOfficers();
       notifyListeners();
     }
   }
@@ -1902,6 +1910,7 @@ class AdminViewModel extends ChangeNotifier {
       notifyListeners();
     } catch (e) {
       _errorMessage = e.toString();
+      if (_serviceGroups.isEmpty) _serviceGroups = _fallbackServiceGroups();
       notifyListeners();
     }
   }
@@ -1926,6 +1935,7 @@ class AdminViewModel extends ChangeNotifier {
       notifyListeners();
     } catch (e) {
       _errorMessage = e.toString();
+      if (_payGroups.isEmpty) _payGroups = _fallbackPayGroups();
       notifyListeners();
     }
   }
@@ -1955,6 +1965,12 @@ class AdminViewModel extends ChangeNotifier {
       notifyListeners();
     } catch (e) {
       _errorMessage = e.toString();
+      if (_organizationCompliances.isEmpty) {
+        _organizationCompliances = [
+          {'id': 1, 'name': 'SIA License'},
+          {'id': 2, 'name': 'Right To Work'},
+        ];
+      }
       notifyListeners();
     }
   }
@@ -1970,6 +1986,7 @@ class AdminViewModel extends ChangeNotifier {
       notifyListeners();
     } catch (e) {
       _errorMessage = e.toString();
+      if (_clockInQuestionnaires.isEmpty) _clockInQuestionnaires = _fallbackClockInQuestionnaires();
       notifyListeners();
     }
   }

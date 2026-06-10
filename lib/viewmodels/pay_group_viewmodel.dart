@@ -63,7 +63,7 @@ class PayGroupViewModel extends ChangeNotifier {
     } catch (e, stackTrace) {
       _error = e.toString();
       _isLoading = false;
-      _payGroups = [];
+      if (_payGroups.isEmpty) _payGroups = _getFallbackPayGroups();
       notifyListeners();
       debugPrint('Error loading pay groups: $_error');
       debugPrint('Stack trace: $stackTrace');

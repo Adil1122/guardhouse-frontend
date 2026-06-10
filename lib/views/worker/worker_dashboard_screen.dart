@@ -283,22 +283,66 @@ class _WorkerDashboardScreenState extends State<WorkerDashboardScreen> {
                         ),
                         SizedBox(height: 10.h),
                       ],
-                      Row(
+                      Column(
                         children: [
-                          Expanded(
-                            child: _DashboardMiniAction(
-                              icon: Icons.history,
-                              label: 'Duty History',
-                              onTap: () => context.push(Routes.workerHistory),
-                            ),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: _DashboardMiniAction(
+                                  icon: Icons.calendar_today_outlined,
+                                  label: 'My Shifts',
+                                  onTap: () => context.push(Routes.workerMyShifts),
+                                ),
+                              ),
+                              SizedBox(width: 10.w),
+                              Expanded(
+                                child: _DashboardMiniAction(
+                                  icon: Icons.work_outline,
+                                  label: 'Offered Shifts',
+                                  onTap: () => context.push(Routes.workerOfferedShifts),
+                                ),
+                              ),
+                            ],
                           ),
-                          SizedBox(width: 10.w),
-                          Expanded(
-                            child: _DashboardMiniAction(
-                              icon: Icons.camera_alt_outlined,
-                              label: 'Photo Evidence',
-                              onTap: () => context.push('/worker/enhanced-checkin'),
-                            ),
+                          SizedBox(height: 10.h),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: _DashboardMiniAction(
+                                  icon: Icons.check_circle_outline,
+                                  label: 'Checkin',
+                                  onTap: () => context.push('/worker/enhanced-checkin'),
+                                ),
+                              ),
+                              SizedBox(width: 10.w),
+                              Expanded(
+                                child: _DashboardMiniAction(
+                                  icon: Icons.health_and_safety_outlined,
+                                  label: 'Check Call',
+                                  onTap: () => context.push(Routes.workerCheckCall),
+                                ),
+                              ),
+                            ],
+                          ),
+                          SizedBox(height: 10.h),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: _DashboardMiniAction(
+                                  icon: Icons.qr_code_scanner,
+                                  label: 'Scan QR',
+                                  onTap: () => context.push(Routes.workerQrScan),
+                                ),
+                              ),
+                              SizedBox(width: 10.w),
+                              Expanded(
+                                child: _DashboardMiniAction(
+                                  icon: Icons.history,
+                                  label: 'Duty History',
+                                  onTap: () => context.push(Routes.workerHistory),
+                                ),
+                              ),
+                            ],
                           ),
                         ],
                       ),
@@ -473,181 +517,6 @@ class _WorkerDashboardScreenState extends State<WorkerDashboardScreen> {
             if (!mounted) return;
             context.go(Routes.login);
           },
-        );
-      },
-    );
-  }
-
-  Future<void> _showPhotoEvidenceSheet(
-    BuildContext context,
-    WorkerViewModel workerViewModel,
-  ) async {
-    await showModalBottomSheet<void>(
-      context: context,
-      backgroundColor: Colors.white,
-      barrierColor: const Color(0xFF000000),
-      builder: (sheetContext) {
-        return Container(
-          width: double.infinity,
-          padding: EdgeInsets.fromLTRB(16.w, 14.h, 16.w, 18.h),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(16.r)),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                'Take Check-in Photo',
-                style: AppTypography.title().copyWith(
-                  fontSize: 16.sp,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              SizedBox(height: 12.h),
-              Container(
-                width: double.infinity,
-                padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 12.h),
-                decoration: BoxDecoration(
-                  color: AppColors.background,
-                  borderRadius: BorderRadius.circular(12.r),
-                  border: Border.all(color: AppColors.infoBorder),
-                ),
-                child: Row(
-                  children: [
-                    Icon(
-                      Icons.info_outline,
-                      color: AppColors.primary,
-                      size: 24.sp,
-                    ),
-                    SizedBox(width: 10.w),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Photo evidence required',
-                            style: AppTypography.body().copyWith(
-                              fontWeight: FontWeight.w600,
-                              fontSize: 13.sp,
-                            ),
-                          ),
-                          Text(
-                            'Please take a photo as proof of presence',
-                            style: AppTypography.body().copyWith(
-                              color: AppColors.textSecondary,
-                              fontSize: 11.sp,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              SizedBox(height: 12.h),
-              Container(
-                width: double.infinity,
-                padding: EdgeInsets.symmetric(vertical: 20.h),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF3F4F6),
-                  borderRadius: BorderRadius.circular(12.r),
-                  border: Border.all(color: AppColors.cardBorder),
-                ),
-                child: Column(
-                  children: [
-                    Container(
-                      width: 46.sp,
-                      height: 46.sp,
-                      decoration: const BoxDecoration(
-                        color: Color(0xFFE5E7EB),
-                        shape: BoxShape.circle,
-                      ),
-                      child: Icon(Icons.camera_alt_outlined, size: 24.sp),
-                    ),
-                    SizedBox(height: 10.h),
-                    Text(
-                      'Tap to take photo',
-                      style: AppTypography.body().copyWith(
-                        fontSize: 14.sp,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    SizedBox(height: 4.h),
-                    Text(
-                      'Required for check-in',
-                      style: AppTypography.body().copyWith(
-                        fontSize: 11.sp,
-                        color: AppColors.textSecondary,
-                      ),
-                    ),
-                    SizedBox(height: 2.h),
-                    Text(
-                      'Photo will include timestamp and location',
-                      style: AppTypography.body().copyWith(
-                        fontSize: 11.sp,
-                        color: AppColors.textSecondary,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              SizedBox(height: 14.h),
-              Row(
-                children: [
-                  Expanded(
-                    child: ElevatedButton(
-                      onPressed: () => Navigator.of(sheetContext).pop(),
-                      style: ElevatedButton.styleFrom(
-                        elevation: 0,
-                        backgroundColor: const Color(0xFFE5E7EB),
-                        foregroundColor: AppColors.textSecondary,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10.r),
-                        ),
-                        minimumSize: Size.fromHeight(42.h),
-                      ),
-                      child: const Text('Dismiss'),
-                    ),
-                  ),
-                  SizedBox(width: 10.w),
-                  Expanded(
-                    child: ElevatedButton(
-                      onPressed: () async {
-                        final ok = await workerViewModel.submitCheckin(
-                          location: 'Site Geofence',
-                          notes: 'Photo evidence uploaded',
-                          type: 'regular',
-                        );
-                        if (!mounted) return;
-                        Navigator.of(sheetContext).pop();
-                        if (ok) {
-                          context
-                              .read<WorkerPanelViewModel>()
-                              .setGeofenceStatus(true);
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Check-in uploaded successfully'),
-                            ),
-                          );
-                        }
-                      },
-                      style: ElevatedButton.styleFrom(
-                        elevation: 0,
-                        backgroundColor: AppColors.primary,
-                        foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10.r),
-                        ),
-                        minimumSize: Size.fromHeight(42.h),
-                      ),
-                      child: const Text('Upload'),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
         );
       },
     );

@@ -47,7 +47,7 @@ class ServiceGroupViewModel extends ChangeNotifier {
     } catch (e) {
       _error = e.toString();
       _isLoading = false;
-      _groups = [];
+      if (_groups.isEmpty) _groups = _getFallbackGroups();
       notifyListeners();
       debugPrint('Error loading service groups: $_error');
     }

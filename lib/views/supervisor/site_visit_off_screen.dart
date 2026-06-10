@@ -23,11 +23,9 @@ class _SiteVisitOffScreenState extends State<SiteVisitOffScreen> {
     final supervisorViewModel = context.watch<SupervisorViewModel>();
     final activeVisit = supervisorViewModel.activeSiteVisit;
 
-    final siteName = activeVisit?['siteName']?.toString() ?? 'Downtown Office';
-    final siteAddress =
-        activeVisit?['location']?.toString() ??
-        '123 Main Street, City Center, NY 10001';
-    final workersCount = activeVisit?['workersCount']?.toString() ?? '5';
+    final siteName = activeVisit?['site_name']?.toString() ?? activeVisit?['siteName']?.toString() ?? '';
+    final siteAddress = activeVisit?['location']?.toString() ?? '';
+    final workersCount = activeVisit?['assigned_workers']?.toString() ?? activeVisit?['workersCount']?.toString() ?? '0';
 
     return SupervisorPanelScaffold(
       title: 'Site Visit',

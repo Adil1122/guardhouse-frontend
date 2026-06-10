@@ -185,4 +185,59 @@ class SupervisorApiService extends ApiService {
       return false;
     }
   }
+
+  Future<bool> submitCheckin(Map<String, dynamic> checkinData) async {
+    try {
+      final response = await dio.post(
+        'supervisor/checkins',
+        data: checkinData,
+      );
+      return response.statusCode == 200 || response.statusCode == 201;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  Future<bool> saveQrScan(Map<String, dynamic> scanData) async {
+    try {
+      final response = await dio.post(
+        'supervisor/qr-scans',
+        data: scanData,
+      );
+      return response.statusCode == 200 || response.statusCode == 201;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> getAllOfficers() async {
+    try {
+      final response = await dio.get('supervisor/all-officers');
+      return List<Map<String, dynamic>>.from(
+        response.data['officers'] ?? response.data['data'] ?? [],
+      );
+    } catch (e) {
+      return [];
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> getAlarmHistory() async {
+    try {
+      final response = await dio.get('supervisor/alarms');
+      return List<Map<String, dynamic>>.from(
+        response.data['alarms'] ?? response.data['data'] ?? [],
+      );
+    } catch (e) {
+      return [];
+    }
+  }
+
+  Future<bool> raiseAlarm(Map<String, dynamic> data) async {
+    try {
+      final response = await dio.post('supervisor/alarms', data: data);
+      return response.statusCode == 200 || response.statusCode == 201;
+    } catch (e) {
+      return false;
+    }
+  }
 }
