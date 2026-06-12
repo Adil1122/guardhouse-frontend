@@ -7,6 +7,7 @@ import 'package:security_app/constants/app_constants.dart';
 import 'package:security_app/constants/typography.dart';
 import 'package:security_app/viewmodels/worker_viewmodel.dart';
 import 'package:security_app/widgets/worker_panel_components.dart';
+import 'package:security_app/services/location_service.dart';
 
 class WorkerCheckinScreen extends StatefulWidget {
   const WorkerCheckinScreen({super.key});
@@ -89,12 +90,30 @@ class _WorkerCheckinScreenState extends State<WorkerCheckinScreen> {
 
     setState(() => _submitting = true);
 
+    final locationService = LocationService();
+    final currentPosition = locationService.currentPosition;
+    
+    if (currentPosition == null) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Unable to get current location. Please wait or enable location services.'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      setState(() => _submitting = false);
+      return;
+    }
+
     final ok = await context.read<WorkerViewModel>().submitCheckin(
           location: 'Site Checkpoint',
           notes: _notesController.text.trim().isEmpty
               ? 'Photo evidence uploaded'
               : _notesController.text.trim(),
           type: 'regular',
+          latitude: currentPosition.latitude,
+          longitude: currentPosition.longitude,
+          photo: _photo,
         );
 
     if (!mounted) return;

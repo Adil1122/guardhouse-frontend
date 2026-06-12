@@ -9,6 +9,7 @@ import 'package:security_app/constants/typography.dart';
 import 'package:security_app/routes/routes.dart';
 import 'package:security_app/viewmodels/worker_geofence_viewmodel.dart';
 import 'package:security_app/viewmodels/worker_panel_viewmodel.dart';
+import 'package:security_app/viewmodels/worker_viewmodel.dart';
 import 'package:security_app/services/location_service.dart';
 import 'package:security_app/widgets/ultimate_mobile_widgets.dart';
 
@@ -85,13 +86,13 @@ class _EnhancedCheckinScreenState extends State<EnhancedCheckinScreen> {
         ),
         elevation: 0,
       ),
-      body: Consumer2<WorkerGeofenceViewModel, WorkerPanelViewModel>(
-        builder: (context, geofenceViewModel, panelViewModel, child) {
+      body: Consumer3<WorkerGeofenceViewModel, WorkerPanelViewModel, WorkerViewModel>(
+        builder: (context, geofenceViewModel, panelViewModel, workerViewModel, child) {
           if (geofenceViewModel.isLoading && geofenceViewModel.currentShift == null) {
             return const Center(child: CircularProgressIndicator());
           }
 
-          if (geofenceViewModel.currentShift == null) {
+          if (geofenceViewModel.currentShift == null && workerViewModel.tasks.isEmpty) {
             return _buildNoActiveShift();
           }
 
@@ -815,6 +816,8 @@ class _EnhancedCheckinScreenState extends State<EnhancedCheckinScreen> {
       setState(() {
         _selectedType = 'regular';
       });
+      // Go back to dashboard automatically
+      context.go(Routes.worker);
     } else {
       final errMsg = geofenceViewModel.errorMessage;
       ScaffoldMessenger.of(context).showSnackBar(

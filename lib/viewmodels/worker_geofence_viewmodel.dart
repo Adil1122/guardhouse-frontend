@@ -61,11 +61,6 @@ class WorkerGeofenceViewModel extends ChangeNotifier {
     int? siteCheckpointId,
     bool usePhoto = true,
   }) async {
-    if (_currentShift == null) {
-      _setError('No active shift found');
-      return false;
-    }
-
     _setSubmittingCheckin(true);
     _clearError();
 
@@ -98,7 +93,8 @@ class WorkerGeofenceViewModel extends ChangeNotifier {
         _pendingPhoto = null;
       }
 
-      // Refresh checkin history
+      // Refresh current shift and checkin history
+      await loadCurrentShift();
       await loadCheckinHistory();
 
       return true;

@@ -1,3 +1,5 @@
+import 'dart:io';
+import 'package:dio/dio.dart';
 import 'api_service.dart';
 import 'storage_service.dart';
 
@@ -8,7 +10,7 @@ class WorkerApiService extends ApiService {
     try {
       final response = await dio.get('worker/sites');
       return List<Map<String, dynamic>>.from(
-        response.data['sites'] ?? response.data['data'] ?? [],
+        response.data is List ? response.data : (response.data['sites'] ?? response.data['data'] ?? [])
       );
     } catch (e) {
       return [];
@@ -18,7 +20,9 @@ class WorkerApiService extends ApiService {
   Future<List<Map<String, dynamic>>> getWorkerTasks() async {
     try {
       final response = await dio.get('worker/tasks');
-      return List<Map<String, dynamic>>.from(response.data['tasks']);
+      return List<Map<String, dynamic>>.from(
+        response.data is List ? response.data : (response.data['tasks'] ?? [])
+      );
     } catch (e) {
       throw Exception('Failed to load tasks');
     }
@@ -51,7 +55,7 @@ class WorkerApiService extends ApiService {
   Future<List<Map<String, dynamic>>> getWorkerAttendance() async {
     try {
       final response = await dio.get('worker/attendance');
-      return List<Map<String, dynamic>>.from(response.data['attendance'] ?? []);
+      return List<Map<String, dynamic>>.from(response.data is List ? response.data : (response.data['attendance'] ?? []));
     } catch (e) {
       throw Exception('Failed to load attendance records');
     }
@@ -70,7 +74,7 @@ class WorkerApiService extends ApiService {
     try {
       final response = await dio.get('worker/activities');
       return List<Map<String, dynamic>>.from(
-        response.data['activities'] ?? response.data['data'] ?? [],
+        response.data is List ? response.data : (response.data['activities'] ?? response.data['data'] ?? [])
       );
     } catch (e) {
       return [];
@@ -99,9 +103,19 @@ class WorkerApiService extends ApiService {
     }
   }
 
-  Future<bool> submitCheckin(Map<String, dynamic> checkinData) async {
+  Future<bool> submitCheckin(Map<String, dynamic> checkinData, {File? photo}) async {
     try {
-      final response = await dio.post('worker/checkin', data: checkinData);
+      final formData = FormData.fromMap(checkinData);
+      
+      if (photo != null) {
+        final fileName = photo.path.split('/').last;
+        formData.files.add(MapEntry(
+          'photo',
+          await MultipartFile.fromFile(photo.path, filename: fileName),
+        ));
+      }
+      
+      final response = await dio.post('worker/checkin', data: formData);
       return response.statusCode == 200 || response.statusCode == 201;
     } catch (e) {
       return false;
@@ -112,7 +126,7 @@ class WorkerApiService extends ApiService {
     try {
       final response = await dio.get('worker/recent-checkins');
       return List<Map<String, dynamic>>.from(
-        response.data['checkins'] ?? response.data['data'] ?? [],
+        response.data is List ? response.data : (response.data['checkins'] ?? response.data['data'] ?? [])
       );
     } catch (e) {
       return [];
@@ -123,7 +137,7 @@ class WorkerApiService extends ApiService {
     try {
       final response = await dio.get('worker/shift-history');
       return List<Map<String, dynamic>>.from(
-        response.data['shifts'] ?? response.data['data'] ?? [],
+        response.data is List ? response.data : (response.data['shifts'] ?? response.data['data'] ?? [])
       );
     } catch (e) {
       return [];

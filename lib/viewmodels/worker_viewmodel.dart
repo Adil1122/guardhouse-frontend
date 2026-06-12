@@ -72,6 +72,7 @@ class WorkerViewModel extends ChangeNotifier {
       await _loadTasks();
       await _loadReports();
       await _loadCurrentShift();
+      await loadAvailableSites();
     } catch (e) {
       _errorMessage = e.toString();
     }
@@ -90,6 +91,8 @@ class WorkerViewModel extends ChangeNotifier {
 
     try {
       await _loadCurrentShift();
+      await _loadTasks();
+      await _loadRecentCheckins();
       await _loadRecentActivities();
       await loadNotifications();
       await loadAvailableSites();
@@ -184,6 +187,7 @@ class WorkerViewModel extends ChangeNotifier {
   }
 
   Future<bool> endShift({
+    required String shiftId,
     required String notes,
     required bool hasIncidents,
     String? incidentDetails,
@@ -207,6 +211,7 @@ class WorkerViewModel extends ChangeNotifier {
 
     try {
       final shiftData = {
+        'id': shiftId,
         'notes': notes,
         'has_incidents': hasIncidents,
         'incident_details': incidentDetails,
@@ -232,6 +237,9 @@ class WorkerViewModel extends ChangeNotifier {
     required String location,
     required String notes,
     required String type,
+    double? latitude,
+    double? longitude,
+    dynamic photo,
   }) async {
     _setLoading(true);
 
@@ -262,12 +270,15 @@ class WorkerViewModel extends ChangeNotifier {
 
     try {
       final checkinData = {
-        'location': location,
+        'location_description': location,
         'notes': notes,
         'type': type,
         'timestamp': DateTime.now().toIso8601String(),
       };
-      final success = await _apiService.submitCheckin(checkinData);
+      if (latitude != null) checkinData['latitude'] = latitude.toString();
+      if (longitude != null) checkinData['longitude'] = longitude.toString();
+
+      final success = await _apiService.submitCheckin(checkinData, photo: photo);
       if (success) {
         await _loadRecentCheckins();
         if (_currentShift != null) {
@@ -424,12 +435,8 @@ class WorkerViewModel extends ChangeNotifier {
 
     try {
       _availableSites = await _apiService.getSites();
-      if (_availableSites.isEmpty) {
-        _availableSites = _mockSites();
-      }
     } catch (e) {
       _errorMessage = e.toString();
-      _availableSites = _mockSites();
     }
     notifyListeners();
   }
@@ -442,12 +449,8 @@ class WorkerViewModel extends ChangeNotifier {
 
     try {
       _tasks = await _apiService.getWorkerTasks();
-      if (_tasks.isEmpty) {
-        _tasks = _mockTasks();
-      }
     } catch (e) {
       _errorMessage = e.toString();
-      _tasks = _mockTasks();
     }
   }
 
@@ -553,19 +556,7 @@ class WorkerViewModel extends ChangeNotifier {
   }
 
   void _ensureFallbackUIData() {
-    _availableSites = _availableSites.isEmpty ? _mockSites() : _availableSites;
-    _notifications = _notifications.isEmpty
-        ? _mockNotifications()
-        : _notifications;
-    _recentCheckins = _recentCheckins.isEmpty
-        ? _mockCheckins()
-        : _recentCheckins;
-    _shiftHistory = _shiftHistory.isEmpty ? _mockShiftHistory() : _shiftHistory;
-    _tasks = _tasks.isEmpty ? _mockTasks() : _tasks;
-    _reports = _reports.isEmpty ? _mockReports() : _reports;
-    _recentActivities = _recentActivities.isEmpty
-        ? _mockRecentActivities()
-        : _recentActivities;
+    // Removed all mock data fallbacks
   }
 
   Map<String, dynamic> _buildEndedShift({required String notes}) {

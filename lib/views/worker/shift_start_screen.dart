@@ -6,6 +6,7 @@ import 'package:security_app/constants/app_constants.dart';
 import 'package:security_app/constants/typography.dart';
 import 'package:security_app/routes/routes.dart';
 import 'package:security_app/viewmodels/worker_panel_viewmodel.dart';
+import 'package:security_app/viewmodels/worker_geofence_viewmodel.dart';
 import 'package:security_app/viewmodels/worker_viewmodel.dart';
 
 class ShiftStartScreen extends StatefulWidget {
@@ -19,9 +20,17 @@ class _ShiftStartScreenState extends State<ShiftStartScreen> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<WorkerViewModel>().loadAvailableSites();
-      context.read<WorkerPanelViewModel>().setGeofenceStatus(true);
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      final workerViewModel = context.read<WorkerViewModel>();
+      if (workerViewModel.tasks.isEmpty) {
+        await workerViewModel.loadDashboardData();
+      }
+      if (workerViewModel.tasks.isNotEmpty) {
+        final shift = workerViewModel.tasks.first;
+        if (shift['geofence'] != null) {
+          context.read<WorkerPanelViewModel>().syncGeofenceStatus(shift);
+        }
+      }
     });
   }
 
@@ -29,13 +38,29 @@ class _ShiftStartScreenState extends State<ShiftStartScreen> {
   Widget build(BuildContext context) {
     final workerViewModel = context.watch<WorkerViewModel>();
     final panelViewModel = context.watch<WorkerPanelViewModel>();
+    final geofenceViewModel = context.watch<WorkerGeofenceViewModel>();
 
-    final site = workerViewModel.availableSites.isNotEmpty
-        ? workerViewModel.availableSites.first
-        : const <String, dynamic>{};
-    final siteName = site['name']?.toString() ?? 'Downtown Office';
-    final siteAddress =
-        site['address']?.toString() ?? '123 Main Street, City Center, NY 10001';
+    Map<String, dynamic>? upcomingShift;
+    if (workerViewModel.tasks.isNotEmpty) {
+      upcomingShift = workerViewModel.tasks.first;
+    }
+    
+    final fallbackSite = workerViewModel.availableSites.isNotEmpty 
+        ? workerViewModel.availableSites.first 
+        : null;
+
+    final upcomingSiteName = upcomingShift?['site_name']?.toString() ?? '';
+    final upcomingSiteAddress = upcomingShift?['site_address']?.toString() ?? '';
+
+    final siteName = upcomingSiteName.isNotEmpty ? upcomingSiteName : (fallbackSite?['name']?.toString() ?? 'No Site Assigned');
+    final siteAddress = upcomingSiteAddress.isNotEmpty ? upcomingSiteAddress : (fallbackSite?['address']?.toString() ?? 'Address: N/A');
+    
+    // Extract geofence data from the shift, or fallback to the site's geofence if available
+    final geofenceData = (upcomingShift?['geofence'] ?? fallbackSite?['geofence']) as Map<String, dynamic>?;
+    final geofenceRadius = geofenceData != null ? geofenceData['check_in_distance']?.toString() ?? '100' : '100';
+    final geofenceLat = geofenceData?['lat']?.toString() ?? '0.0';
+    final geofenceLon = geofenceData?['lon']?.toString() ?? '0.0';
+    final isInsideGeofence = panelViewModel.isInsideGeofence;
 
     return Scaffold(
       backgroundColor: AppColors.dashboardBackground,
@@ -54,11 +79,18 @@ class _ShiftStartScreenState extends State<ShiftStartScreen> {
                   children: [
                     _StatusCard(isInside: panelViewModel.isInsideGeofence),
                     SizedBox(height: 12.h),
-                    _SiteInfoCard(siteName: siteName, siteAddress: siteAddress),
+                    _SiteInfoCard(
+                      siteName: siteName, 
+                      siteAddress: siteAddress,
+                      geofenceRadius: geofenceRadius,
+                      geofenceLat: geofenceLat,
+                      geofenceLon: geofenceLon,
+                    ),
                     SizedBox(height: 12.h),
                     _MapCard(isInside: panelViewModel.isInsideGeofence),
                     SizedBox(height: 16.h),
-                    SizedBox(
+                    if (isInsideGeofence && geofenceViewModel.currentShift == null)
+                      SizedBox(
                       width: double.infinity,
                       child: ElevatedButton(
                         onPressed: () => context.push(Routes.workerCheckin),
@@ -193,10 +225,19 @@ class _StatusCard extends StatelessWidget {
 }
 
 class _SiteInfoCard extends StatelessWidget {
-  const _SiteInfoCard({required this.siteName, required this.siteAddress});
+  const _SiteInfoCard({
+    required this.siteName, 
+    required this.siteAddress,
+    required this.geofenceRadius,
+    required this.geofenceLat,
+    required this.geofenceLon,
+  });
 
   final String siteName;
   final String siteAddress;
+  final String geofenceRadius;
+  final String geofenceLat;
+  final String geofenceLon;
 
   @override
   Widget build(BuildContext context) {
@@ -250,11 +291,11 @@ class _SiteInfoCard extends StatelessWidget {
             ],
           ),
           SizedBox(height: 10.h),
-          _MetricRow(label: 'Main office building in downtown area', value: ''),
+          _MetricRow(label: 'Notes', value: 'Assigned Site Location'),
           SizedBox(height: 8.h),
-          _MetricRow(label: 'Geofence Radius', value: '100m'),
+          _MetricRow(label: 'Geofence Radius', value: '${geofenceRadius}m'),
           SizedBox(height: 8.h),
-          _MetricRow(label: 'Geofence Radius', value: '40.7128, -74.0060'),
+          _MetricRow(label: 'Geofence Coordinates', value: '$geofenceLat, $geofenceLon'),
         ],
       ),
     );

@@ -13,6 +13,12 @@ class GeofenceApiService {
     baseUrl: ApiConfig.baseUrl,
     connectTimeout: ApiConfig.connectTimeout,
     receiveTimeout: ApiConfig.receiveTimeout,
+    headers: {
+      'Accept': 'application/json',
+      'X-Requested-With': 'XMLHttpRequest',
+      'User-Agent': 'GuardHouseApp/1.0.0',
+      'Connection': 'keep-alive',
+    },
   )) {
     _setupInterceptors();
   }

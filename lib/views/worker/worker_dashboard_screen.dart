@@ -47,9 +47,13 @@ class _WorkerDashboardScreenState extends State<WorkerDashboardScreen> {
       await geofenceViewModel.loadCurrentShift();
       
       if (!mounted) return;
-      context.read<WorkerPanelViewModel>().syncGeofenceStatus(
-        geofenceViewModel.currentShift,
-      );
+      
+      Map<String, dynamic>? shiftToSync = geofenceViewModel.currentShift;
+      if (shiftToSync == null && workerViewModel.tasks.isNotEmpty) {
+        shiftToSync = workerViewModel.tasks.first;
+      }
+      
+      context.read<WorkerPanelViewModel>().syncGeofenceStatus(shiftToSync);
     });
 
     _clockTimer = Timer.periodic(const Duration(seconds: 1), (_) {
@@ -75,17 +79,31 @@ class _WorkerDashboardScreenState extends State<WorkerDashboardScreen> {
         authViewModel.currentUser?['fullName'] ??
         authViewModel.currentUser?['full_name'] ??
         'John Worker';
-    final site = workerViewModel.availableSites.isNotEmpty
-        ? workerViewModel.availableSites.first
-        : const <String, dynamic>{};
+    Map<String, dynamic>? upcomingShift;
+    if (workerViewModel.tasks.isNotEmpty) {
+      upcomingShift = workerViewModel.tasks.first;
+    }
+
+    final fallbackSite = workerViewModel.availableSites.isNotEmpty 
+        ? workerViewModel.availableSites.first 
+        : null;
+
+    final upcomingSiteName = upcomingShift?['site_name']?.toString() ?? '';
+    final upcomingSiteAddress = upcomingShift?['site_address']?.toString() ?? '';
+
     final siteName =
         geofenceViewModel.currentShift?['site_name']?.toString() ??
-        site['name']?.toString() ??
         workerViewModel.currentShift?['siteName']?.toString() ??
+        (upcomingSiteName.isNotEmpty ? upcomingSiteName : null) ??
+        fallbackSite?['name']?.toString() ??
         'No Site Assigned';
+        
     final siteAddress =
         geofenceViewModel.currentShift?['site_address']?.toString() ??
-        site['address']?.toString() ?? 'Address: N/A';
+        workerViewModel.currentShift?['siteAddress']?.toString() ??
+        (upcomingSiteAddress.isNotEmpty ? upcomingSiteAddress : null) ?? 
+        fallbackSite?['address']?.toString() ??
+        'Address: N/A';
 
     final bool onDuty = geofenceViewModel.currentShift != null;
     final bool insideGeofence = panelViewModel.isInsideGeofence;
@@ -144,16 +162,19 @@ class _WorkerDashboardScreenState extends State<WorkerDashboardScreen> {
                                 .setGeofenceStatus(true);
                             final workerVm = context.read<WorkerViewModel>();
                             if (workerVm.currentShift == null) {
-                              final siteId = workerVm.availableSites.isNotEmpty
-                                  ? workerVm.availableSites.first['id']
-                                            ?.toString() ??
-                                        'site_1'
-                                  : 'site_1';
-                              await workerVm.startShift(
-                                siteId: siteId,
-                                location: 'Site geofence',
-                                notes: 'Auto started from geofence entry',
-                              );
+                              final siteId = (upcomingShift?['site_id']?.toString() ?? '').isNotEmpty 
+                                  ? upcomingShift!['site_id'].toString() 
+                                  : (workerVm.availableSites.isNotEmpty
+                                      ? workerVm.availableSites.first['id']?.toString() ?? ''
+                                      : '');
+                              
+                              if (siteId.isNotEmpty) {
+                                await workerVm.startShift(
+                                  siteId: siteId,
+                                  location: 'Site geofence',
+                                  notes: 'Auto started from geofence entry',
+                                );
+                              }
                             }
                             return;
                           }
@@ -161,58 +182,60 @@ class _WorkerDashboardScreenState extends State<WorkerDashboardScreen> {
                         },
                       ),
                       SizedBox(height: 12.h),
-                      WorkerPanelCard(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Assigned Site',
-                              style: AppTypography.body().copyWith(
-                                color: AppColors.textSecondary,
-                                fontSize: 12.sp,
-                              ),
-                            ),
-                            SizedBox(height: 6.h),
-                            Text(
-                              siteName,
-                              style: AppTypography.title().copyWith(
-                                fontSize: 18.sp,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                            SizedBox(height: 4.h),
-                            Row(
-                              children: [
-                                Icon(
-                                  Icons.location_on_outlined,
-                                  size: 15.sp,
+                      if (onDuty || workerViewModel.tasks.isNotEmpty) ...[
+                        WorkerPanelCard(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Assigned Site',
+                                style: AppTypography.body().copyWith(
                                   color: AppColors.textSecondary,
+                                  fontSize: 12.sp,
                                 ),
-                                SizedBox(width: 4.w),
-                                Expanded(
-                                  child: Text(
-                                    siteAddress,
-                                    style: AppTypography.body().copyWith(
-                                      color: AppColors.textSecondary,
-                                      fontSize: 11.sp,
+                              ),
+                              SizedBox(height: 6.h),
+                              Text(
+                                siteName,
+                                style: AppTypography.title().copyWith(
+                                  fontSize: 18.sp,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              SizedBox(height: 4.h),
+                              Row(
+                                children: [
+                                  Icon(
+                                    Icons.location_on_outlined,
+                                    size: 15.sp,
+                                    color: AppColors.textSecondary,
+                                  ),
+                                  SizedBox(width: 4.w),
+                                  Expanded(
+                                    child: Text(
+                                      siteAddress,
+                                      style: AppTypography.body().copyWith(
+                                        color: AppColors.textSecondary,
+                                        fontSize: 11.sp,
+                                      ),
                                     ),
                                   ),
-                                ),
-                              ],
-                            ),
-                            SizedBox(height: 10.h),
-                            SizedBox(
-                              width: double.infinity,
-                              child: WorkerActionButton(
-                                label: 'View Details',
-                                onTap: () =>
-                                    context.push(Routes.workerStartShift),
+                                ],
                               ),
-                            ),
-                          ],
+                              SizedBox(height: 10.h),
+                              SizedBox(
+                                width: double.infinity,
+                                child: WorkerActionButton(
+                                  label: 'View Details',
+                                  onTap: () =>
+                                      context.push(Routes.workerStartShift),
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
-                      ),
-                      SizedBox(height: 12.h),
+                        SizedBox(height: 12.h),
+                      ],
                       if (insideGeofence || onDuty) ...[
                         WorkerPanelCard(
                           backgroundColor: AppColors.primary,
@@ -235,8 +258,9 @@ class _WorkerDashboardScreenState extends State<WorkerDashboardScreen> {
                               SizedBox(height: 3.h),
                               Text(
                                 _dutyDuration(
-                                  workerViewModel.currentShift?['startTime'] ??
-                                      panelViewModel.insideGeofenceSince,
+                                  workerViewModel.currentShift != null 
+                                      ? workerViewModel.currentShift!['startTime'] ?? workerViewModel.currentShift!['start_time'] 
+                                      : null,
                                 ),
                                 style: AppTypography.display().copyWith(
                                   color: Colors.white,
@@ -260,28 +284,38 @@ class _WorkerDashboardScreenState extends State<WorkerDashboardScreen> {
                             ],
                           ),
                         ),
-                        SizedBox(height: 10.h),
-                        SizedBox(
-                          width: double.infinity,
-                          child: WorkerActionButton(
-                            label: 'Check In Now',
-                            icon: Icons.check_circle_outline,
-                            variant: WorkerButtonVariant.secondary,
-                            onTap: () => context.push('/worker/enhanced-checkin'),
+                        if (!onDuty) ...[
+                          SizedBox(height: 10.h),
+                          SizedBox(
+                            width: double.infinity,
+                            child: WorkerActionButton(
+                              label: 'Check In Now',
+                              icon: Icons.check_circle_outline,
+                              variant: WorkerButtonVariant.secondary,
+                              onTap: () => context.push('/worker/enhanced-checkin'),
+                            ),
                           ),
-                        ),
-                        SizedBox(height: 8.h),
-                        SizedBox(
-                          width: double.infinity,
-                          child: WorkerActionButton(
-                            label: 'End Shift',
-                            icon: Icons.stop_circle_outlined,
-                            variant: WorkerButtonVariant.danger,
-                            onTap: () =>
-                                _showEndShiftSheet(context, workerViewModel),
+                        ],
+                        if (onDuty) ...[
+                          SizedBox(height: 8.h),
+                          SizedBox(
+                            width: double.infinity,
+                            child: WorkerActionButton(
+                              label: 'End Shift',
+                              icon: Icons.stop_circle_outlined,
+                              variant: WorkerButtonVariant.danger,
+                              onTap: () {
+                                final currentShiftId = geofenceViewModel.currentShift?['id']?.toString() ?? workerViewModel.currentShift?['id']?.toString() ?? '';
+                                if (currentShiftId.isNotEmpty) {
+                                  _showEndShiftDialog(context, workerViewModel, currentShiftId);
+                                } else {
+                                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('No active shift to end')));
+                                }
+                              },
+                            ),
                           ),
-                        ),
-                        SizedBox(height: 10.h),
+                          SizedBox(height: 10.h),
+                        ],
                       ],
                       Column(
                         children: [
@@ -468,35 +502,44 @@ class _WorkerDashboardScreenState extends State<WorkerDashboardScreen> {
     );
   }
 
-  Future<void> _showEndShiftSheet(
+  Future<void> _showEndShiftDialog(
     BuildContext context,
     WorkerViewModel workerViewModel,
+    String shiftId,
   ) async {
-    await showModalBottomSheet<void>(
+    await showDialog<void>(
       context: context,
-      useSafeArea: true,
-      builder: (sheetContext) {
-        return WorkerBottomDualAction(
-          leftLabel: 'Dismiss',
-          rightLabel: 'End Shift',
-          rightVariant: WorkerButtonVariant.danger,
-          onLeftTap: () => Navigator.of(sheetContext).pop(),
-          onRightTap: () async {
-            Navigator.of(sheetContext).pop();
-            final ok = await workerViewModel.endShift(
-              notes: 'Ended from dashboard',
-              hasIncidents: false,
-            );
-            if (!mounted) return;
-            context.read<WorkerPanelViewModel>().syncGeofenceStatus(
-              workerViewModel.currentShift,
-            );
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(ok ? 'Shift ended' : 'Failed to end shift'),
-              ),
-            );
-          },
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text('End Shift'),
+          content: const Text('Are you sure you want to end your current shift?'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              style: TextButton.styleFrom(foregroundColor: AppColors.danger),
+              onPressed: () async {
+                Navigator.of(dialogContext).pop();
+                final ok = await workerViewModel.endShift(
+                  shiftId: shiftId,
+                  notes: 'Ended from dashboard',
+                  hasIncidents: false,
+                );
+                if (!mounted) return;
+                context.read<WorkerPanelViewModel>().syncGeofenceStatus(
+                  workerViewModel.currentShift,
+                );
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(ok ? 'Shift ended' : 'Failed to end shift'),
+                  ),
+                );
+              },
+              child: const Text('End Shift'),
+            ),
+          ],
         );
       },
     );

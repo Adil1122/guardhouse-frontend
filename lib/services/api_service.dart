@@ -17,9 +17,9 @@ class ApiService {
           headers: {
             'Content-Type': 'application/json',
             'Accept': 'application/json',
-            'Referer': 'http://localhost:3000',
-            'User-Agent': 'GuardHouse-Mobile-App/1.0 (Dart)',
-            'Connection': 'close',
+            'X-Requested-With': 'XMLHttpRequest',
+            'User-Agent': 'GuardHouseApp/1.0.0',
+            'Connection': 'keep-alive',
           },
         ),
       ) {

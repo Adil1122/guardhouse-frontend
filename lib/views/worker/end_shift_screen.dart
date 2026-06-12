@@ -68,6 +68,7 @@ class EndShiftScreen extends StatelessWidget {
         onLeftTap: () => Navigator.of(context).pop(),
         onRightTap: () async {
           final ok = await context.read<WorkerViewModel>().endShift(
+            shiftId: shift['id']?.toString() ?? '',
             notes: 'Ended by worker',
             hasIncidents: false,
           );

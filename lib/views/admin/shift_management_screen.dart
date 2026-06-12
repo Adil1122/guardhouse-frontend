@@ -1301,7 +1301,7 @@ class _ShiftFormSheetState extends State<_ShiftFormSheet> {
       if (widget.isEdit) 'id': widget.shift?['id'],
       'site_id': _selectedSite?['id'],
       'service_type': _selectedServiceType == 'Guard' ? 'static-guard' : 'mobile-patrol',
-      'assigned_to': _selectedOfficer?['id'],
+      'assigned_to': _selectedOfficer?['user_id'] ?? _selectedOfficer?['id'],
       'start_date': _selectedDate?.toIso8601String().split('T')[0],
       'end_date': _endDate?.toIso8601String().split('T')[0],
       'start_time': _formatTime(_startTime),

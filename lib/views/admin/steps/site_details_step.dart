@@ -10,6 +10,7 @@ import '../../../viewmodels/admin_viewmodel.dart';
 import '../../../widgets/ultimate_mobile_widgets.dart';
 import '../../../widgets/map_picker_widget.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:geolocator/geolocator.dart';
 
 class SiteDetailsStep extends StatefulWidget {
   const SiteDetailsStep({super.key});
@@ -198,12 +199,35 @@ class _SiteDetailsStepState extends State<SiteDetailsStep> {
   }
 
   Future<void> _showMapPicker() async {
-    var initialLat = double.tryParse(_latitudeController.text.trim()) ?? 51.509364;
-    var initialLon = double.tryParse(_longitudeController.text.trim()) ?? -0.128928;
+    var initialLat = double.tryParse(_latitudeController.text.trim()) ?? 0.0;
+    var initialLon = double.tryParse(_longitudeController.text.trim()) ?? 0.0;
+    
     if (initialLat == 0.0 && initialLon == 0.0) {
-      initialLat = 51.509364;
-      initialLon = -0.128928;
+      try {
+        bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+        if (serviceEnabled) {
+          LocationPermission permission = await Geolocator.checkPermission();
+          if (permission == LocationPermission.denied) {
+            permission = await Geolocator.requestPermission();
+          }
+          if (permission == LocationPermission.whileInUse || permission == LocationPermission.always) {
+            Position position = await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high);
+            initialLat = position.latitude;
+            initialLon = position.longitude;
+          } else {
+            initialLat = 51.509364;
+            initialLon = -0.128928;
+          }
+        } else {
+          initialLat = 51.509364;
+          initialLon = -0.128928;
+        }
+      } catch (e) {
+        initialLat = 51.509364;
+        initialLon = -0.128928;
+      }
     }
+
     final result = await MapPickerWidget.show(
       context,
       initialLocation: LatLng(initialLat, initialLon),
