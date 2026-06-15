@@ -22,7 +22,7 @@ class _LiveOperationsScreenState extends State<LiveOperationsScreen>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<AdminViewModel>().loadShifts();
+      context.read<AdminViewModel>().loadLiveOperations();
     });
   }
 
@@ -36,17 +36,17 @@ class _LiveOperationsScreenState extends State<LiveOperationsScreen>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
       // Refresh shifts when app resumes (user comes back to the screen)
-      context.read<AdminViewModel>().loadShifts();
+      context.read<AdminViewModel>().loadLiveOperations();
     }
   }
 
   String _siteName(Map<String, dynamic> shift) {
-    final value = (shift['siteName'] ?? '').toString().trim();
+    final value = (shift['site_name'] ?? shift['siteName'] ?? '').toString().trim();
     return value.isEmpty ? 'Unknown Site' : value;
   }
 
   String _officerName(Map<String, dynamic> shift) {
-    final value = (shift['securityOfficerName'] ?? '').toString().trim();
+    final value = (shift['worker_name'] ?? shift['securityOfficerName'] ?? '').toString().trim();
     return value.isEmpty ? 'Unassigned' : value;
   }
 
@@ -129,7 +129,7 @@ class _LiveOperationsScreenState extends State<LiveOperationsScreen>
   }
 
   String _startTimeFormatted(Map<String, dynamic> shift) {
-    final startTime = shift['startTime'];
+    final startTime = shift['start_time'] ?? shift['startTime'];
     if (startTime == null) return '--:--';
     try {
       return DateFormat('HH:mm').format(DateTime.parse(startTime.toString()));
@@ -141,7 +141,7 @@ class _LiveOperationsScreenState extends State<LiveOperationsScreen>
   }
 
   String _endTimeFormatted(Map<String, dynamic> shift) {
-    final endTime = shift['endTime'];
+    final endTime = shift['end_time'] ?? shift['endTime'];
     if (endTime == null) return '--:--';
     try {
       return DateFormat('HH:mm').format(DateTime.parse(endTime.toString()));
@@ -150,25 +150,6 @@ class _LiveOperationsScreenState extends State<LiveOperationsScreen>
       if (str.contains('T')) return str.split('T')[1].substring(0, 5);
       return str.contains(':') ? str.substring(0, 5) : str;
     }
-  }
-
-  List<Map<String, dynamic>> _getTodaysShifts(
-    List<Map<String, dynamic>> allShifts,
-  ) {
-    final today = DateTime.now();
-    final todayString = DateFormat('yyyy-MM-dd').format(today);
-
-    return allShifts.where((shift) {
-      final shiftDate = shift['date'];
-      if (shiftDate == null) return false;
-      try {
-        final parsedDate = DateTime.parse(shiftDate);
-        final shiftDateString = DateFormat('yyyy-MM-dd').format(parsedDate);
-        return shiftDateString == todayString;
-      } catch (_) {
-        return false;
-      }
-    }).toList();
   }
 
   Map<String, List<Map<String, dynamic>>> _groupShiftsByStatus(
@@ -213,125 +194,13 @@ class _LiveOperationsScreenState extends State<LiveOperationsScreen>
     return grouped;
   }
 
-  List<Map<String, dynamic>> _getMockShifts() {
-    final today = DateFormat('yyyy-MM-dd').format(DateTime.now());
-    return [
-      // Awaiting (using Scheduled status)
-      {
-        'siteName': 'Downtown Mall',
-        'securityOfficerName': 'John Smith',
-        'date': today,
-        'startTime': '2026-04-09T08:00:00',
-        'endTime': '2026-04-09T16:00:00',
-        'status': 'Scheduled',
-      },
-      {
-        'siteName': 'Central Bank',
-        'securityOfficerName': 'Sarah Johnson',
-        'date': today,
-        'startTime': '2026-04-09T09:00:00',
-        'endTime': '2026-04-09T17:00:00',
-        'status': 'Scheduled',
-      },
-      // Clocked in (using In Progress status)
-      {
-        'siteName': 'Tech Park Building A',
-        'securityOfficerName': 'Mike Davis',
-        'date': today,
-        'startTime': '2026-04-09T06:00:00',
-        'endTime': '2026-04-09T14:00:00',
-        'status': 'In Progress',
-      },
-      {
-        'siteName': 'Hospital Complex',
-        'securityOfficerName': 'Emma Wilson',
-        'date': today,
-        'startTime': '2026-04-09T14:00:00',
-        'endTime': '2026-04-09T22:00:00',
-        'status': 'In Progress',
-      },
-      {
-        'siteName': 'Shopping Center',
-        'securityOfficerName': 'David Brown',
-        'date': today,
-        'startTime': '2026-04-09T10:00:00',
-        'endTime': '2026-04-09T18:00:00',
-        'status': 'In Progress',
-      },
-      // Missed beeps
-      {
-        'siteName': 'Industrial Park',
-        'securityOfficerName': 'Lisa Garcia',
-        'date': today,
-        'startTime': '2026-04-09T07:00:00',
-        'endTime': '2026-04-09T15:00:00',
-        'status': 'missed-alert',
-      },
-      {
-        'siteName': 'Office Tower',
-        'securityOfficerName': 'Robert Miller',
-        'date': today,
-        'startTime': '2026-04-09T08:30:00',
-        'endTime': '2026-04-09T16:30:00',
-        'status': 'missed-clock-in',
-      },
-      // Checking welfare
-      {
-        'siteName': 'Residential Complex',
-        'securityOfficerName': 'Jennifer Lee',
-        'date': today,
-        'startTime': '2026-04-09T12:00:00',
-        'endTime': '2026-04-09T20:00:00',
-        'status': 'checking-welfare',
-      },
-      // Clocked out (using Completed status)
-      {
-        'siteName': 'Airport Terminal',
-        'securityOfficerName': 'James Taylor',
-        'date': today,
-        'startTime': '2026-04-09T04:00:00',
-        'endTime': '2026-04-09T12:00:00',
-        'status': 'Completed',
-      },
-      {
-        'siteName': 'Stadium',
-        'securityOfficerName': 'Maria Rodriguez',
-        'date': today,
-        'startTime': '2026-04-09T16:00:00',
-        'endTime': '2026-04-09T00:00:00',
-        'status': 'Completed',
-      },
-      {
-        'siteName': 'University Campus',
-        'securityOfficerName': 'Kevin Anderson',
-        'date': today,
-        'startTime': '2026-04-09T18:00:00',
-        'endTime': '2026-04-09T02:00:00',
-        'status': 'Completed',
-      },
-    ];
-  }
-
   @override
   Widget build(BuildContext context) {
     return Consumer<AdminViewModel>(
       builder: (context, viewModel, child) {
-        final allShifts = viewModel.shifts;
+        final allShifts = viewModel.liveShifts;
 
-        // If shifts haven't been loaded yet, load them
-        if (allShifts.isEmpty && !viewModel.isLoading) {
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            context.read<AdminViewModel>().loadShifts();
-          });
-        }
-
-        final todaysShifts = _getTodaysShifts(allShifts);
-
-        // Combine real shifts with mock data for demonstration
-        final mockShifts = _getMockShifts();
-        final combinedShifts = [...todaysShifts, ...mockShifts];
-
-        final groupedShifts = _groupShiftsByStatus(combinedShifts);
+        final groupedShifts = _groupShiftsByStatus(allShifts);
 
         return Scaffold(
           backgroundColor: const Color(0xFFE5E7EB),
@@ -372,7 +241,7 @@ class _LiveOperationsScreenState extends State<LiveOperationsScreen>
                                 ),
                                 SizedBox(height: 2.h),
                                 Text(
-                                  '${combinedShifts.length} shifts today',
+                                  '${allShifts.length} active shifts',
                                   style: AppTypography.label().copyWith(
                                     color: Colors.white.withValues(alpha: 0.9),
                                     fontSize: 11.sp,
@@ -390,7 +259,7 @@ class _LiveOperationsScreenState extends State<LiveOperationsScreen>
                   child: viewModel.isLoading && allShifts.isEmpty
                       ? const Center(child: CircularProgressIndicator())
                       : RefreshIndicator(
-                          onRefresh: () => viewModel.loadShifts(),
+                          onRefresh: () => viewModel.loadLiveOperations(),
                           child: ListView(
                             padding: EdgeInsets.fromLTRB(
                               16.w,

@@ -49,7 +49,9 @@ class _ShiftDetailsScreenState extends State<ShiftDetailsScreen> {
             _TopBlueSummary(
               start: _formatTime(shift['start_time']),
               end: _formatTime(shift['end_time']),
-              total: '${shift['duration_hours'] ?? 9}h',
+              total: shift['duration_hours'] != null
+                  ? '${shift['duration_hours']}h'
+                  : '–',
             ),
             Expanded(
               child: ListView(
@@ -58,10 +60,10 @@ class _ShiftDetailsScreenState extends State<ShiftDetailsScreen> {
                   _LocationCard(
                     dateText: _formatDate(shift['date']),
                     siteName:
-                        shift['site_name']?.toString() ?? 'Downtown Office',
+                        shift['site_name']?.toString() ?? 'Unknown Site',
                     address:
                         shift['site_address']?.toString() ??
-                        '123 Main Street, City Center, NY',
+                        'Address not available',
                   ),
                   SizedBox(height: 12.h),
                   _StatsCard(
@@ -84,7 +86,7 @@ class _ShiftDetailsScreenState extends State<ShiftDetailsScreen> {
     final date = value is DateTime
         ? value
         : DateTime.tryParse(value?.toString() ?? '');
-    if (date == null) return 'Dec 30, 2025';
+    if (date == null) return '–';
     const months = [
       'Jan',
       'Feb',
@@ -103,16 +105,24 @@ class _ShiftDetailsScreenState extends State<ShiftDetailsScreen> {
   }
 
   String _formatTime(dynamic value) {
-    final date = value is DateTime
-        ? value
-        : DateTime.tryParse(value?.toString() ?? '');
-    if (date == null) return '08:00 AM';
-    final h = date.hour > 12
-        ? date.hour - 12
-        : (date.hour == 0 ? 12 : date.hour);
-    final m = date.minute.toString().padLeft(2, '0');
-    final ampm = date.hour >= 12 ? 'PM' : 'AM';
-    return '$h:${m} $ampm';
+    if (value == null) return '–';
+    final date = value is DateTime ? value : DateTime.tryParse(value.toString());
+    if (date != null) {
+      final h = date.hour > 12 ? date.hour - 12 : (date.hour == 0 ? 12 : date.hour);
+      final m = date.minute.toString().padLeft(2, '0');
+      final ampm = date.hour >= 12 ? 'PM' : 'AM';
+      return '$h:$m $ampm';
+    }
+    // Handle H:i:s or H:i time-only strings (e.g. "08:00:00")
+    final match = RegExp(r'^(\d{1,2}):(\d{2})').firstMatch(value.toString());
+    if (match != null) {
+      final h24 = int.parse(match.group(1)!);
+      final m = match.group(2)!;
+      final h = h24 > 12 ? h24 - 12 : (h24 == 0 ? 12 : h24);
+      final ampm = h24 >= 12 ? 'PM' : 'AM';
+      return '$h:$m $ampm';
+    }
+    return '–';
   }
 }
 
@@ -547,7 +557,7 @@ class _TimelineCard extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            _time(item['timestamp']),
+                            _time(item['checked_in_at'] ?? item['timestamp']),
                             style: TextStyle(
                               fontSize: 12.sp,
                               color: AppColors.textSecondary,
@@ -599,13 +609,22 @@ class _TimelineCard extends StatelessWidget {
   }
 
   String _time(dynamic v) {
-    final date = v is DateTime ? v : DateTime.tryParse(v?.toString() ?? '');
-    if (date == null) return '08:00 AM';
-    final h = date.hour > 12
-        ? date.hour - 12
-        : (date.hour == 0 ? 12 : date.hour);
-    final m = date.minute.toString().padLeft(2, '0');
-    final ampm = date.hour >= 12 ? 'PM' : 'AM';
-    return '$h:${m} $ampm';
+    if (v == null) return '–';
+    final date = v is DateTime ? v : DateTime.tryParse(v.toString());
+    if (date != null) {
+      final h = date.hour > 12 ? date.hour - 12 : (date.hour == 0 ? 12 : date.hour);
+      final m = date.minute.toString().padLeft(2, '0');
+      final ampm = date.hour >= 12 ? 'PM' : 'AM';
+      return '$h:$m $ampm';
+    }
+    final match = RegExp(r'^(\d{1,2}):(\d{2})').firstMatch(v.toString());
+    if (match != null) {
+      final h24 = int.parse(match.group(1)!);
+      final m = match.group(2)!;
+      final h = h24 > 12 ? h24 - 12 : (h24 == 0 ? 12 : h24);
+      final ampm = h24 >= 12 ? 'PM' : 'AM';
+      return '$h:$m $ampm';
+    }
+    return '–';
   }
 }

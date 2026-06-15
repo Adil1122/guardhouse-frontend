@@ -22,6 +22,10 @@ class AdminViewModel extends ChangeNotifier {
   List<Map<String, dynamic>> _customerInvoiceProfiles = [];
   List<Map<String, dynamic>> _customerInvoices = [];
   List<Map<String, dynamic>> _shifts = [];
+  List<Map<String, dynamic>> _liveShifts = [];
+  List<Map<String, dynamic>> _liveAlerts = [];
+  List<Map<String, dynamic>> _liveCheckins = [];
+  Map<String, dynamic> _liveSummary = {};
   List<Map<String, dynamic>> _shiftNotes = [];
   List<Map<String, dynamic>> _securityOfficers = [];
   List<Map<String, dynamic>> _serviceGroups = [];
@@ -48,6 +52,10 @@ class AdminViewModel extends ChangeNotifier {
       _customerInvoiceProfiles;
   List<Map<String, dynamic>> get customerInvoices => _customerInvoices;
   List<Map<String, dynamic>> get shifts => _shifts;
+  List<Map<String, dynamic>> get liveShifts => _liveShifts;
+  List<Map<String, dynamic>> get liveAlerts => _liveAlerts;
+  List<Map<String, dynamic>> get liveCheckins => _liveCheckins;
+  Map<String, dynamic> get liveSummary => _liveSummary;
   List<Map<String, dynamic>> get shiftNotes => _shiftNotes;
   List<Map<String, dynamic>> get securityOfficers => _securityOfficers;
   List<Map<String, dynamic>> get serviceGroups => _serviceGroups;
@@ -1568,6 +1576,25 @@ class AdminViewModel extends ChangeNotifier {
       if (_shifts.isEmpty) _shifts = _fallbackShifts();
       notifyListeners();
     }
+  }
+
+  Future<void> loadLiveOperations() async {
+    _setLoading(true);
+    try {
+      final response = await _apiService.getLiveOperations();
+      _liveShifts = List<Map<String, dynamic>>.from(response['active_shifts'] ?? []);
+      _liveAlerts = List<Map<String, dynamic>>.from(response['recent_alerts'] ?? []);
+      _liveCheckins = List<Map<String, dynamic>>.from(response['recent_checkins'] ?? []);
+      _liveSummary = Map<String, dynamic>.from(response['summary'] ?? {});
+    } catch (e) {
+      _errorMessage = e.toString();
+      _liveShifts = [];
+      _liveAlerts = [];
+      _liveCheckins = [];
+      _liveSummary = {};
+    }
+    _setLoading(false);
+    notifyListeners();
   }
 
   List<Map<String, dynamic>> _fallbackShifts() {

@@ -17,6 +17,8 @@ class ShiftStartScreen extends StatefulWidget {
 }
 
 class _ShiftStartScreenState extends State<ShiftStartScreen> {
+  bool _starting = false;
+
   @override
   void initState() {
     super.initState();
@@ -61,6 +63,9 @@ class _ShiftStartScreenState extends State<ShiftStartScreen> {
     final geofenceLat = geofenceData?['lat']?.toString() ?? '0.0';
     final geofenceLon = geofenceData?['lon']?.toString() ?? '0.0';
     final isInsideGeofence = panelViewModel.isInsideGeofence;
+    final activeShift = geofenceViewModel.currentShift;
+    final activeSiteName = activeShift?['site_name']?.toString() ?? '';
+    final isOnDutyElsewhere = activeShift != null;
 
     return Scaffold(
       backgroundColor: AppColors.dashboardBackground,
@@ -77,10 +82,56 @@ class _ShiftStartScreenState extends State<ShiftStartScreen> {
                 padding: EdgeInsets.all(16.sp),
                 child: Column(
                   children: [
+                    if (isOnDutyElsewhere) ...[
+                      Container(
+                        width: double.infinity,
+                        padding: EdgeInsets.symmetric(
+                            horizontal: 16.w, vertical: 14.h),
+                        decoration: BoxDecoration(
+                          color: AppColors.errorBackground,
+                          borderRadius: BorderRadius.circular(12.r),
+                          border: Border.all(color: AppColors.error),
+                        ),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Icon(Icons.lock_outlined,
+                                color: AppColors.error, size: 20.sp),
+                            SizedBox(width: 10.w),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Already On Duty',
+                                    style: AppTypography.body().copyWith(
+                                      fontWeight: FontWeight.w700,
+                                      fontSize: 13.sp,
+                                      color: AppColors.error,
+                                    ),
+                                  ),
+                                  SizedBox(height: 3.h),
+                                  Text(
+                                    activeSiteName.isNotEmpty
+                                        ? 'You are currently working at $activeSiteName. Complete that shift before starting here.'
+                                        : 'You are currently on duty at another site. Complete that shift before starting here.',
+                                    style: AppTypography.body().copyWith(
+                                      fontSize: 12.sp,
+                                      color: AppColors.error,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      SizedBox(height: 12.h),
+                    ],
                     _StatusCard(isInside: panelViewModel.isInsideGeofence),
                     SizedBox(height: 12.h),
                     _SiteInfoCard(
-                      siteName: siteName, 
+                      siteName: siteName,
                       siteAddress: siteAddress,
                       geofenceRadius: geofenceRadius,
                       geofenceLat: geofenceLat,
@@ -89,30 +140,74 @@ class _ShiftStartScreenState extends State<ShiftStartScreen> {
                     SizedBox(height: 12.h),
                     _MapCard(isInside: panelViewModel.isInsideGeofence),
                     SizedBox(height: 16.h),
-                    if (isInsideGeofence && geofenceViewModel.currentShift == null)
-                      SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton(
-                        onPressed: () => context.push(Routes.workerCheckin),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.primary,
-                          foregroundColor: Colors.white,
-                          elevation: 0,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12.r),
+                    if (!isOnDutyElsewhere && upcomingShift != null) ...[
+                      if (!isInsideGeofence) ...[
+                        Container(
+                          width: double.infinity,
+                          padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 10.h),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFFF3CD),
+                            borderRadius: BorderRadius.circular(10.r),
+                            border: Border.all(color: const Color(0xFFFFC107)),
                           ),
-                          minimumSize: Size.fromHeight(44.h),
+                          child: Row(
+                            children: [
+                              Icon(Icons.warning_amber_outlined, size: 16.sp, color: const Color(0xFF856404)),
+                              SizedBox(width: 8.w),
+                              Expanded(
+                                child: Text(
+                                  'You appear to be outside the geofence. You can still start your shift.',
+                                  style: AppTypography.body().copyWith(fontSize: 11.sp, color: const Color(0xFF856404)),
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
-                        child: Text(
-                          'Check In Now',
-                          style: AppTypography.body().copyWith(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w600,
-                            fontSize: 14.sp,
+                        SizedBox(height: 10.h),
+                      ],
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton(
+                          onPressed: _starting ? null : () async {
+                            final shiftId = upcomingShift!['id']?.toString() ?? '';
+                            if (shiftId.isEmpty) return;
+                            setState(() => _starting = true);
+                            final ok = await context.read<WorkerViewModel>().startShift(shiftId: shiftId);
+                            if (!mounted) return;
+                            if (ok) {
+                              await context.read<WorkerGeofenceViewModel>().loadCurrentShift();
+                              if (!mounted) return;
+                              context.push(Routes.workerCheckin);
+                            } else {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: const Text('Failed to start shift. Please try again.'),
+                                  backgroundColor: AppColors.error,
+                                ),
+                              );
+                            }
+                            if (mounted) setState(() => _starting = false);
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.primary,
+                            foregroundColor: Colors.white,
+                            elevation: 0,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12.r),
+                            ),
+                            minimumSize: Size.fromHeight(44.h),
+                          ),
+                          child: Text(
+                            _starting ? 'Starting Shift…' : 'Start Shift',
+                            style: AppTypography.body().copyWith(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w600,
+                              fontSize: 14.sp,
+                            ),
                           ),
                         ),
                       ),
-                    ),
+                    ],
                   ],
                 ),
               ),

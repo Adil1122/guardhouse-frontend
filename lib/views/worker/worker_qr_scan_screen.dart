@@ -4,7 +4,7 @@ import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:provider/provider.dart';
 import 'package:security_app/constants/app_constants.dart';
 import 'package:security_app/constants/typography.dart';
-import 'package:security_app/viewmodels/worker_viewmodel.dart';
+import 'package:security_app/viewmodels/worker_geofence_viewmodel.dart';
 import 'package:security_app/widgets/worker_panel_components.dart';
 
 class WorkerQrScanScreen extends StatefulWidget {
@@ -36,44 +36,52 @@ class _WorkerQrScanScreenState extends State<WorkerQrScanScreen> {
     setState(() => _processing = true);
     await _controller.stop();
 
-    final qrValue = barcode!.rawValue!;
+    final qrToken = barcode!.rawValue!;
     if (!mounted) return;
 
-    final confirmed = await _showConfirmSheet(qrValue);
+    final confirmed = await _showConfirmSheet(qrToken);
     if (!mounted) return;
 
     if (confirmed == true) {
-      await _saveCheckin(qrValue);
+      await _saveCheckin(qrToken);
     } else {
       setState(() => _processing = false);
       await _controller.start();
     }
   }
 
-  Future<void> _saveCheckin(String qrValue) async {
-    final vm = context.read<WorkerViewModel>();
-    final ok = await vm.submitCheckin(
-      location: qrValue,
-      notes: 'QR checkpoint scan',
-      type: 'qr_scan',
-    );
+  Future<void> _saveCheckin(String qrToken) async {
+    setState(() => _processing = true);
+
+    final geofenceVm = context.read<WorkerGeofenceViewModel>();
+    final result = await geofenceVm.scanCheckpoint(qrToken);
+
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          ok ? 'Checkpoint "$qrValue" logged successfully' : 'Failed to save scan – try again',
+    setState(() => _processing = false);
+
+    if (result != null) {
+      final name = result['checkpoint_name']?.toString() ?? 'Checkpoint';
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('"$name" scanned successfully'),
+          backgroundColor: AppColors.success,
         ),
-        backgroundColor: ok ? AppColors.success : AppColors.error,
-      ),
-    );
-    if (ok) Navigator.of(context).pop();
-    if (!ok) {
-      setState(() => _processing = false);
+      );
+      Navigator.of(context).pop();
+    } else {
+      final err = geofenceVm.errorMessage ?? 'Failed to record scan — try again';
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(err),
+          backgroundColor: AppColors.error,
+          duration: const Duration(seconds: 5),
+        ),
+      );
       await _controller.start();
     }
   }
 
-  Future<bool?> _showConfirmSheet(String qrValue) {
+  Future<bool?> _showConfirmSheet(String qrToken) {
     return showModalBottomSheet<bool>(
       context: context,
       useSafeArea: true,
@@ -105,7 +113,15 @@ class _WorkerQrScanScreenState extends State<WorkerQrScanScreen> {
                 fontWeight: FontWeight.w600,
               ),
             ),
-            SizedBox(height: 8.h),
+            SizedBox(height: 4.h),
+            Text(
+              'Log this checkpoint scan?',
+              style: AppTypography.body().copyWith(
+                fontSize: 12.sp,
+                color: AppColors.textSecondary,
+              ),
+            ),
+            SizedBox(height: 10.h),
             Container(
               width: double.infinity,
               padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 10.h),
@@ -114,7 +130,7 @@ class _WorkerQrScanScreenState extends State<WorkerQrScanScreen> {
                 borderRadius: BorderRadius.circular(10.r),
               ),
               child: Text(
-                qrValue,
+                qrToken,
                 textAlign: TextAlign.center,
                 style: AppTypography.body().copyWith(
                   fontSize: 13.sp,
@@ -141,13 +157,10 @@ class _WorkerQrScanScreenState extends State<WorkerQrScanScreen> {
   Future<void> _submitManualCode() async {
     final code = _codeController.text.trim();
     if (code.isEmpty) return;
-    setState(() => _processing = true);
-    await _saveCheckin(code);
     _codeController.clear();
-    setState(() {
-      _processing = false;
-      _showManual = false;
-    });
+    FocusScope.of(context).unfocus();
+    await _saveCheckin(code);
+    if (mounted) setState(() => _showManual = false);
   }
 
   @override
@@ -212,7 +225,20 @@ class _WorkerQrScanScreenState extends State<WorkerQrScanScreen> {
           Container(
             color: Colors.black54,
             alignment: Alignment.center,
-            child: const CircularProgressIndicator(color: Colors.white),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const CircularProgressIndicator(color: Colors.white),
+                SizedBox(height: 16.h),
+                Text(
+                  'Recording checkpoint…',
+                  style: AppTypography.body().copyWith(
+                    color: Colors.white,
+                    fontSize: 14.sp,
+                  ),
+                ),
+              ],
+            ),
           ),
       ],
     );
@@ -226,7 +252,7 @@ class _WorkerQrScanScreenState extends State<WorkerQrScanScreen> {
         children: [
           const WorkerStatusBanner(
             title: 'Enter Checkpoint Code',
-            subtitle: 'Type the code printed on the checkpoint label.',
+            subtitle: 'Type the QR token printed on the checkpoint label.',
             icon: Icons.info_outline,
             variant: WorkerStatusVariant.info,
           ),

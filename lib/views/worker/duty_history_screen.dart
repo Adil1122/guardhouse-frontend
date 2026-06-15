@@ -87,7 +87,34 @@ class _DutyHistoryScreenState extends State<DutyHistoryScreen> {
             Expanded(
               child: RefreshIndicator(
                 onRefresh: vm.loadDutyHistory,
-                child: ListView.builder(
+                child: shifts.isEmpty
+                    ? ListView(
+                        children: [
+                          SizedBox(height: 80.h),
+                          Icon(Icons.history_outlined,
+                              size: 56.sp, color: Colors.grey.shade300),
+                          SizedBox(height: 16.h),
+                          Text(
+                            'No duty history yet',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: 16.sp,
+                              color: Colors.grey.shade500,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                          SizedBox(height: 8.h),
+                          Text(
+                            'Completed shifts will appear here',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: 13.sp,
+                              color: Colors.grey.shade400,
+                            ),
+                          ),
+                        ],
+                      )
+                    : ListView.builder(
                   padding: EdgeInsets.all(16.sp),
                   itemCount: shifts.length,
                   itemBuilder: (context, index) {
@@ -97,12 +124,12 @@ class _DutyHistoryScreenState extends State<DutyHistoryScreen> {
                       child: _HistoryCard(
                         dateText: _formatDate(shift['date']),
                         timeText:
-                            '${_formatTime(shift['startTime'])} - ${_formatTime(shift['endTime'])}',
+                            '${_formatTime(shift['start_time'])} - ${_formatTime(shift['end_time'])}',
                         siteText:
-                            shift['siteName']?.toString() ?? 'Downtown Office',
-                        hoursText: '${shift['durationHours'] ?? 9}h',
-                        checkins: '${shift['checkinsCount'] ?? 9}',
-                        photos: '${(shift['checkinsCount'] ?? 9) > 4 ? 9 : 4}',
+                            shift['site_name']?.toString() ?? 'Unknown Site',
+                        hoursText: '${shift['duration_hours'] ?? 0}h',
+                        checkins: '${shift['checkins_count'] ?? 0}',
+                        photos: '${shift['photos_count'] ?? 0}',
                         onTap: () => context.push(
                           Routes.workerShiftDetails,
                           extra: shift['id']?.toString() ?? '0',
@@ -142,10 +169,25 @@ class _DutyHistoryScreenState extends State<DutyHistoryScreen> {
   }
 
   String _formatTime(dynamic value) {
-    final date = value is DateTime
-        ? value
-        : DateTime.tryParse(value?.toString() ?? '');
-    if (date == null) return '8:00 AM';
+    if (value == null) return '--';
+    DateTime? date;
+    if (value is DateTime) {
+      date = value;
+    } else {
+      final s = value.toString();
+      date = DateTime.tryParse(s);
+      // Handle time-only "HH:mm:ss"
+      if (date == null) {
+        final m = RegExp(r'^(\d{1,2}):(\d{2})(?::(\d{2}))?$').firstMatch(s);
+        if (m != null) {
+          final now = DateTime.now();
+          date = DateTime(now.year, now.month, now.day,
+              int.tryParse(m.group(1) ?? '') ?? 0,
+              int.tryParse(m.group(2) ?? '') ?? 0);
+        }
+      }
+    }
+    if (date == null) return '--';
     final h = date.hour > 12
         ? date.hour - 12
         : (date.hour == 0 ? 12 : date.hour);

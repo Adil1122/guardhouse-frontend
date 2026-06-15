@@ -5,6 +5,7 @@ import 'package:security_app/constants/app_constants.dart';
 import 'package:security_app/constants/typography.dart';
 import 'package:security_app/viewmodels/supervisor_viewmodel.dart';
 import 'package:security_app/widgets/worker_panel_components.dart';
+import 'package:security_app/widgets/supervisor_panel_components.dart';
 
 class SupervisorOfficersScreen extends StatelessWidget {
   const SupervisorOfficersScreen({super.key});
@@ -39,6 +40,20 @@ class _OfficerCard extends StatelessWidget {
   const _OfficerCard({required this.officer});
 
   final Map<String, dynamic> officer;
+
+  void _sendCheckCall(BuildContext context) async {
+    final id = officer['id']?.toString() ?? '';
+    if (id.isEmpty) return;
+    final vm = context.read<SupervisorViewModel>();
+    final ok = await vm.sendCheckCall(id);
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(ok ? 'Check call sent' : 'Failed to send check call'),
+        backgroundColor: ok ? AppColors.successText : AppColors.error,
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -199,6 +214,17 @@ class _OfficerCard extends StatelessWidget {
                       ],
                     ),
                   ],
+                ],
+                if (onDuty) ...[
+                  SizedBox(height: 10.h),
+                  Divider(height: 1, color: AppColors.cardBorder),
+                  SizedBox(height: 10.h),
+                  SupervisorActionButton(
+                    label: 'Send Check Call',
+                    icon: Icons.health_and_safety_outlined,
+                    isOutlined: true,
+                    onPressed: () => _sendCheckCall(context),
+                  ),
                 ],
               ],
             ),

@@ -1,11 +1,14 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import 'package:security_app/constants/app_constants.dart';
 import 'package:security_app/constants/typography.dart';
+import 'package:security_app/routes/routes.dart';
 import 'package:security_app/viewmodels/worker_viewmodel.dart';
+import 'package:security_app/viewmodels/worker_geofence_viewmodel.dart';
 import 'package:security_app/widgets/worker_panel_components.dart';
 import 'package:security_app/services/location_service.dart';
 
@@ -120,17 +123,24 @@ class _WorkerCheckinScreenState extends State<WorkerCheckinScreen> {
     setState(() => _submitting = false);
 
     if (ok) {
+      // Reload geofence so dashboard shows "on duty" immediately
+      await context.read<WorkerGeofenceViewModel>().loadCurrentShift();
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: const Text('Check-in submitted successfully'),
+          content: const Text('Clocked in successfully'),
           backgroundColor: AppColors.success,
         ),
       );
       Navigator.of(context).pop();
     } else {
+      final raw = context.read<WorkerViewModel>().errorMessage ?? '';
+      final msg = raw.startsWith('Exception: ') ? raw.substring(11) : raw;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Failed to submit check-in. Please try again.'),
+        SnackBar(
+          content: Text(
+            msg.isNotEmpty ? msg : 'Failed to clock in. Please try again.',
+          ),
           backgroundColor: Colors.red,
         ),
       );
@@ -139,6 +149,18 @@ class _WorkerCheckinScreenState extends State<WorkerCheckinScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final geofenceViewModel = context.watch<WorkerGeofenceViewModel>();
+    final workerViewModel = context.watch<WorkerViewModel>();
+
+    final currentShift = geofenceViewModel.currentShift;
+    final assignedSite = workerViewModel.assignedSite;
+
+    final siteName = currentShift?['site_name']?.toString() ??
+        assignedSite?['name']?.toString() ??
+        '';
+    final hasActiveShift = currentShift != null;
+    final hasUpcomingShift = assignedSite != null;
+
     return WorkerPanelScaffold(
       title: 'Check In',
       body: SingleChildScrollView(
@@ -146,6 +168,113 @@ class _WorkerCheckinScreenState extends State<WorkerCheckinScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            if (siteName.isNotEmpty) ...[
+              Container(
+                width: double.infinity,
+                padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 12.h),
+                decoration: BoxDecoration(
+                  color: hasActiveShift
+                      ? AppColors.successBackground
+                      : AppColors.infoBackground,
+                  borderRadius: BorderRadius.circular(12.r),
+                  border: Border.all(
+                    color: hasActiveShift
+                        ? AppColors.successBorder
+                        : AppColors.infoBorder,
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.location_on_outlined,
+                      size: 18.sp,
+                      color: hasActiveShift
+                          ? AppColors.successText
+                          : AppColors.primary,
+                    ),
+                    SizedBox(width: 8.w),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            hasActiveShift ? 'On Duty At' : 'Upcoming Shift At',
+                            style: AppTypography.body().copyWith(
+                              fontSize: 11.sp,
+                              color: hasActiveShift
+                                  ? AppColors.successText
+                                  : AppColors.primary,
+                            ),
+                          ),
+                          Text(
+                            siteName,
+                            style: AppTypography.body().copyWith(
+                              fontSize: 13.sp,
+                              fontWeight: FontWeight.w600,
+                              color: hasActiveShift
+                                  ? AppColors.successText
+                                  : AppColors.primary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              SizedBox(height: 14.h),
+            ],
+            if (!hasActiveShift) ...[
+              Container(
+                width: double.infinity,
+                padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 14.h),
+                decoration: BoxDecoration(
+                  color: AppColors.errorBackground,
+                  borderRadius: BorderRadius.circular(12.r),
+                  border: Border.all(color: AppColors.errorBorder),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(Icons.lock_clock_outlined,
+                            size: 18.sp, color: AppColors.error),
+                        SizedBox(width: 8.w),
+                        Expanded(
+                          child: Text(
+                            'You are not clocked in',
+                            style: AppTypography.body().copyWith(
+                              fontSize: 13.sp,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.error,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    SizedBox(height: 6.h),
+                    Text(
+                      'You need to start your shift before submitting a check-in.',
+                      style: AppTypography.body().copyWith(
+                        fontSize: 12.sp,
+                        color: AppColors.error,
+                      ),
+                    ),
+                    SizedBox(height: 10.h),
+                    SizedBox(
+                      width: double.infinity,
+                      child: WorkerActionButton(
+                        label: 'Go to Start Shift',
+                        icon: Icons.play_circle_outline,
+                        onTap: () => context.push(Routes.workerStartShift),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              SizedBox(height: 14.h),
+            ],
             const WorkerStatusBanner(
               title: 'Photo Evidence Required',
               subtitle:
@@ -260,7 +389,11 @@ class _WorkerCheckinScreenState extends State<WorkerCheckinScreen> {
             SizedBox(
               width: double.infinity,
               child: WorkerActionButton(
-                label: _submitting ? 'Submitting…' : 'Submit Check-in',
+                label: _submitting
+                    ? 'Submitting…'
+                    : hasActiveShift
+                        ? 'Submit Check-in'
+                        : 'Clock In & Check-in',
                 icon: Icons.check_circle_outline,
                 onTap: _submitting ? null : _submit,
               ),

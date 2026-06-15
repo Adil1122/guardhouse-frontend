@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:security_app/constants/app_constants.dart';
 import 'package:security_app/constants/typography.dart';
+import 'package:security_app/routes/routes.dart';
 import 'package:security_app/viewmodels/worker_viewmodel.dart';
 import 'package:security_app/widgets/worker_panel_components.dart';
 
@@ -18,14 +20,14 @@ class _WorkerMyShiftsScreenState extends State<WorkerMyShiftsScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<WorkerViewModel>().loadDutyHistory();
+      context.read<WorkerViewModel>().loadMyShifts();
     });
   }
 
   @override
   Widget build(BuildContext context) {
     final vm = context.watch<WorkerViewModel>();
-    final shifts = vm.shiftHistory;
+    final shifts = vm.myShifts;
 
     return WorkerPanelScaffold(
       title: 'My Shifts',
@@ -39,7 +41,7 @@ class _WorkerMyShiftsScreenState extends State<WorkerMyShiftsScreen> {
                   variant: WorkerStatusVariant.info,
                 )
               : RefreshIndicator(
-                  onRefresh: () => vm.loadDutyHistory(),
+                  onRefresh: () => vm.loadMyShifts(),
                   child: ListView.separated(
                     padding: EdgeInsets.fromLTRB(16.w, 16.h, 16.w, 24.h),
                     itemCount: shifts.length,
@@ -82,7 +84,9 @@ class _ShiftCard extends StatelessWidget {
     if (t is DateTime) {
       return '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}';
     }
-    return t.toString();
+    final s = t.toString();
+    // Strip seconds from HH:mm:ss → HH:mm
+    return s.length >= 5 ? s.substring(0, 5) : s;
   }
 
   static String _monthName(int m) {
@@ -94,21 +98,24 @@ class _ShiftCard extends StatelessWidget {
   }
 
   String get _statusLabel {
-    final s = (shift['status'] ?? 'unknown').toString();
-    if (s.isEmpty) return 'Unknown';
-    return s[0].toUpperCase() + s.substring(1);
+    switch ((shift['status'] ?? '').toString().toLowerCase()) {
+      case 'active':       return 'Active';
+      case 'upcoming':     return 'Upcoming';
+      case 'completed':    return 'Completed';
+      case 'offered':      return 'Offered';
+      case 'missed':       return 'Missed';
+      default:             return 'Upcoming';
+    }
   }
 
   WorkerStatusVariant get _statusVariant {
     switch ((shift['status'] ?? '').toString().toLowerCase()) {
-      case 'active':
-        return WorkerStatusVariant.success;
+      case 'active':    return WorkerStatusVariant.success;
+      case 'completed': return WorkerStatusVariant.warning;
+      case 'missed':    return WorkerStatusVariant.danger;
+      case 'offered':
       case 'upcoming':
-        return WorkerStatusVariant.info;
-      case 'completed':
-        return WorkerStatusVariant.warning;
-      default:
-        return WorkerStatusVariant.info;
+      default:          return WorkerStatusVariant.info;
     }
   }
 
@@ -138,11 +145,32 @@ class _ShiftCard extends StatelessWidget {
     }
   }
 
+  void _onTap(BuildContext context) {
+    final status = (shift['status'] ?? '').toString().toLowerCase();
+    switch (status) {
+      case 'active':
+        context.push('/worker/checkin');
+        break;
+      case 'completed':
+      case 'missed':
+        final id = shift['id']?.toString();
+        if (id != null) context.push('/worker/shift-details', extra: id);
+        break;
+      case 'upcoming':
+      case 'offered':
+      default:
+        context.push(Routes.workerStartShift);
+        break;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final variant = _statusVariant;
-    return WorkerPanelCard(
-      child: Row(
+    return GestureDetector(
+      onTap: () => _onTap(context),
+      child: WorkerPanelCard(
+        child: Row(
         children: [
           Container(
             width: 42.sp,
@@ -193,23 +221,31 @@ class _ShiftCard extends StatelessWidget {
               ],
             ),
           ),
-          Container(
-            padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
-            decoration: BoxDecoration(
-              color: _variantBg(variant),
-              borderRadius: BorderRadius.circular(20.r),
-            ),
-            child: Text(
-              _statusLabel,
-              style: AppTypography.body().copyWith(
-                fontSize: 10.sp,
-                color: _variantColor(variant),
-                fontWeight: FontWeight.w600,
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Container(
+                padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
+                decoration: BoxDecoration(
+                  color: _variantBg(variant),
+                  borderRadius: BorderRadius.circular(20.r),
+                ),
+                child: Text(
+                  _statusLabel,
+                  style: AppTypography.body().copyWith(
+                    fontSize: 10.sp,
+                    color: _variantColor(variant),
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
               ),
-            ),
+              SizedBox(height: 4.h),
+              Icon(Icons.chevron_right, size: 16.sp, color: AppColors.textSecondary),
+            ],
           ),
         ],
       ),
+    ),
     );
   }
 }

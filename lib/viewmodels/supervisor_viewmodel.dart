@@ -841,6 +841,15 @@ class SupervisorViewModel extends ChangeNotifier {
     }
   }
 
+  Future<bool> sendCheckCall(String workerId) async {
+    if (_mockMode) return true;
+    try {
+      return await _apiService.sendCheckCall(workerId);
+    } catch (e) {
+      return false;
+    }
+  }
+
   String _nowLabel() {
     final now = DateTime.now();
     final h =

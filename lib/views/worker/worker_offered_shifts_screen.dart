@@ -24,21 +24,33 @@ class _WorkerOfferedShiftsScreenState
     });
   }
 
-  void _accept(WorkerViewModel vm, String id) {
-    vm.acceptShift(id);
+  Future<void> _accept(WorkerViewModel vm, String id) async {
+    final ok = await vm.acceptShift(id);
+    if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: const Text('Shift accepted successfully'),
-        backgroundColor: AppColors.successText,
+        content: Text(ok ? 'Shift accepted successfully' : 'Failed to accept shift'),
+        backgroundColor: ok ? AppColors.successText : AppColors.error,
       ),
     );
+    if (ok) {
+      await vm.loadOfferedShifts();
+      await vm.loadMyShifts();
+    }
   }
 
-  void _decline(WorkerViewModel vm, String id) {
-    vm.declineShift(id);
+  Future<void> _decline(WorkerViewModel vm, String id) async {
+    final ok = await vm.declineShift(id);
+    if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Shift declined')),
+      SnackBar(
+        content: Text(ok ? 'Shift declined' : 'Failed to decline shift'),
+        backgroundColor: ok ? AppColors.textSecondary : AppColors.error,
+      ),
     );
+    if (ok) {
+      await vm.loadOfferedShifts();
+    }
   }
 
   @override

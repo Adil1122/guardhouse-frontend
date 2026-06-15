@@ -240,4 +240,13 @@ class SupervisorApiService extends ApiService {
       return false;
     }
   }
+
+  Future<bool> sendCheckCall(String workerId) async {
+    try {
+      final response = await dio.post('supervisor/workers/$workerId/check-calls', data: {});
+      return response.statusCode == 200 || response.statusCode == 201;
+    } catch (e) {
+      return false;
+    }
+  }
 }

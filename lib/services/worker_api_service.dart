@@ -1,10 +1,24 @@
 import 'dart:io';
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 import 'api_service.dart';
 import 'storage_service.dart';
 
 class WorkerApiService extends ApiService {
   WorkerApiService(StorageService storageService) : super(storageService);
+
+  Future<Map<String, dynamic>?> getAssignedSite() async {
+    try {
+      final response = await dio.get('worker/assigned-site');
+      final data = response.data;
+      if (data is Map && data['site'] != null) {
+        return Map<String, dynamic>.from(data['site']);
+      }
+      return null;
+    } catch (e) {
+      return null;
+    }
+  }
 
   Future<List<Map<String, dynamic>>> getSites() async {
     try {
@@ -61,12 +75,16 @@ class WorkerApiService extends ApiService {
     }
   }
 
-  Future<Map<String, dynamic>> getCurrentShift() async {
+  Future<Map<String, dynamic>?> getCurrentShift() async {
     try {
       final response = await dio.get('worker/current-shift');
-      return response.data['shift'] ?? response.data;
+      final data = response.data;
+      if (data is Map && data['shift'] != null) {
+        return Map<String, dynamic>.from(data['shift']);
+      }
+      return null;
     } catch (e) {
-      return {};
+      return null;
     }
   }
 
@@ -106,7 +124,7 @@ class WorkerApiService extends ApiService {
   Future<bool> submitCheckin(Map<String, dynamic> checkinData, {File? photo}) async {
     try {
       final formData = FormData.fromMap(checkinData);
-      
+
       if (photo != null) {
         final fileName = photo.path.split('/').last;
         formData.files.add(MapEntry(
@@ -114,11 +132,14 @@ class WorkerApiService extends ApiService {
           await MultipartFile.fromFile(photo.path, filename: fileName),
         ));
       }
-      
+
       final response = await dio.post('worker/checkin', data: formData);
       return response.statusCode == 200 || response.statusCode == 201;
+    } on DioException catch (e) {
+      final msg = e.response?.data?['message']?.toString() ?? 'Failed to submit check-in';
+      throw Exception(msg);
     } catch (e) {
-      return false;
+      throw Exception('Failed to submit check-in');
     }
   }
 
@@ -144,21 +165,27 @@ class WorkerApiService extends ApiService {
     }
   }
 
-  Future<Map<String, dynamic>> getShiftDetails(String shiftId) async {
+  Future<Map<String, dynamic>?> getShiftDetails(String shiftId) async {
     try {
       final response = await dio.get('worker/shifts/$shiftId');
-      return response.data['shift'] ?? response.data;
+      final data = response.data;
+      if (data is Map && data['shift'] != null) {
+        return Map<String, dynamic>.from(data['shift']);
+      }
+      return null;
     } catch (e) {
-      return {};
+      return null;
     }
   }
 
   Future<List<Map<String, dynamic>>> getWorkerNotifications() async {
     try {
       final response = await dio.get('worker/notifications');
-      return List<Map<String, dynamic>>.from(
-        response.data['notifications'] ?? response.data['data'] ?? [],
-      );
+      final data = response.data;
+      final List list = data is List
+          ? data
+          : (data['notifications'] ?? data['data'] ?? []);
+      return List<Map<String, dynamic>>.from(list);
     } catch (e) {
       return [];
     }
@@ -227,11 +254,28 @@ class WorkerApiService extends ApiService {
     }
   }
 
+  Future<List<Map<String, dynamic>>> getMyShifts() async {
+    try {
+      final response = await dio.get('worker/my-shifts');
+      final data = response.data;
+      if (data is List) return List<Map<String, dynamic>>.from(data);
+      return List<Map<String, dynamic>>.from(
+        data['shifts'] ?? data['data'] ?? [],
+      );
+    } catch (e) {
+      return [];
+    }
+  }
+
   Future<List<Map<String, dynamic>>> getOfferedShifts() async {
     try {
       final response = await dio.get('worker/offered-shifts');
+      final data = response.data;
+      if (data is List) {
+        return List<Map<String, dynamic>>.from(data);
+      }
       return List<Map<String, dynamic>>.from(
-        response.data['shifts'] ?? response.data['data'] ?? [],
+        data['shifts'] ?? data['data'] ?? [],
       );
     } catch (e) {
       return [];
@@ -240,18 +284,26 @@ class WorkerApiService extends ApiService {
 
   Future<bool> acceptShift(String shiftId) async {
     try {
-      final response = await dio.post('worker/shifts/$shiftId/accept', data: {});
-      return response.statusCode == 200 || response.statusCode == 201;
+      final response = await dio.post('worker/shifts/$shiftId/accept');
+      return (response.statusCode ?? 0) >= 200 && (response.statusCode ?? 0) < 300;
+    } on DioException catch (e) {
+      debugPrint('acceptShift ${e.response?.statusCode}: ${e.response?.data}');
+      return false;
     } catch (e) {
+      debugPrint('acceptShift error: $e');
       return false;
     }
   }
 
   Future<bool> declineShift(String shiftId) async {
     try {
-      final response = await dio.post('worker/shifts/$shiftId/decline', data: {});
-      return response.statusCode == 200 || response.statusCode == 201;
+      final response = await dio.post('worker/shifts/$shiftId/decline');
+      return (response.statusCode ?? 0) >= 200 && (response.statusCode ?? 0) < 300;
+    } on DioException catch (e) {
+      debugPrint('declineShift ${e.response?.statusCode}: ${e.response?.data}');
+      return false;
     } catch (e) {
+      debugPrint('declineShift error: $e');
       return false;
     }
   }
@@ -259,8 +311,12 @@ class WorkerApiService extends ApiService {
   Future<List<Map<String, dynamic>>> getCheckCalls() async {
     try {
       final response = await dio.get('worker/check-calls');
+      final data = response.data;
+      if (data is List) {
+        return List<Map<String, dynamic>>.from(data);
+      }
       return List<Map<String, dynamic>>.from(
-        response.data['check_calls'] ?? response.data['data'] ?? [],
+        data['check_calls'] ?? data['data'] ?? [],
       );
     } catch (e) {
       return [];
@@ -269,9 +325,13 @@ class WorkerApiService extends ApiService {
 
   Future<bool> respondToCheckCall(String id) async {
     try {
-      final response = await dio.post('worker/check-calls/$id/respond', data: {});
-      return response.statusCode == 200 || response.statusCode == 201;
+      final response = await dio.post('worker/check-calls/$id/respond');
+      return (response.statusCode ?? 0) >= 200 && (response.statusCode ?? 0) < 300;
+    } on DioException catch (e) {
+      debugPrint('respondToCheckCall ${e.response?.statusCode}: ${e.response?.data}');
+      return false;
     } catch (e) {
+      debugPrint('respondToCheckCall error: $e');
       return false;
     }
   }
@@ -279,9 +339,9 @@ class WorkerApiService extends ApiService {
   Future<List<Map<String, dynamic>>> getAlarmHistory() async {
     try {
       final response = await dio.get('worker/alarms');
-      return List<Map<String, dynamic>>.from(
-        response.data['alarms'] ?? response.data['data'] ?? [],
-      );
+      final data = response.data;
+      final List list = data is List ? data : (data['alarms'] ?? data['data'] ?? []);
+      return List<Map<String, dynamic>>.from(list);
     } catch (e) {
       return [];
     }

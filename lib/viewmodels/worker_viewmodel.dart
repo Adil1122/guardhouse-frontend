@@ -13,6 +13,7 @@ class WorkerViewModel extends ChangeNotifier {
   List<Map<String, dynamic>> _tasks = [];
   List<Map<String, dynamic>> _reports = [];
   Map<String, dynamic>? _currentShift;
+  Map<String, dynamic>? _assignedSite;
   List<Map<String, dynamic>> _availableSites = [];
   List<Map<String, dynamic>> _recentCheckins = [];
   List<Map<String, dynamic>> _shiftHistory = [];
@@ -20,6 +21,7 @@ class WorkerViewModel extends ChangeNotifier {
   List<Map<String, dynamic>> _notifications = [];
   List<Map<String, dynamic>> _recentActivities = [];
   List<Map<String, dynamic>> _offeredShifts = [];
+  List<Map<String, dynamic>> _myShifts = [];
   List<Map<String, dynamic>> _checkCalls = [];
   List<Map<String, dynamic>> _alarmHistory = [];
   List<Map<String, dynamic>> _liveShifts = [];
@@ -30,6 +32,7 @@ class WorkerViewModel extends ChangeNotifier {
   List<Map<String, dynamic>> get tasks => _tasks;
   List<Map<String, dynamic>> get reports => _reports;
   Map<String, dynamic>? get currentShift => _currentShift;
+  Map<String, dynamic>? get assignedSite => _assignedSite;
   List<Map<String, dynamic>> get availableSites => _availableSites;
   List<Map<String, dynamic>> get recentCheckins => _recentCheckins;
   List<Map<String, dynamic>> get shiftHistory => _shiftHistory;
@@ -37,6 +40,7 @@ class WorkerViewModel extends ChangeNotifier {
   List<Map<String, dynamic>> get notifications => _notifications;
   List<Map<String, dynamic>> get recentActivities => _recentActivities;
   List<Map<String, dynamic>> get offeredShifts => _offeredShifts;
+  List<Map<String, dynamic>> get myShifts => _myShifts;
   List<Map<String, dynamic>> get checkCalls => _checkCalls;
   List<Map<String, dynamic>> get alarmHistory => _alarmHistory;
   List<Map<String, dynamic>> get liveShifts => _liveShifts;
@@ -55,7 +59,7 @@ class WorkerViewModel extends ChangeNotifier {
   int get totalShifts => _shiftHistory.length;
   int get totalHours => _shiftHistory.fold(
     0,
-    (sum, shift) => sum + ((shift['durationHours'] as int?) ?? 0),
+    (sum, shift) => sum + ((shift['duration_hours'] as num?)?.toInt() ?? 0),
   );
   int get totalCheckins => _recentCheckins.length;
 
@@ -91,6 +95,7 @@ class WorkerViewModel extends ChangeNotifier {
 
     try {
       await _loadCurrentShift();
+      await loadAssignedSite();
       await _loadTasks();
       await _loadRecentCheckins();
       await _loadRecentActivities();
@@ -121,6 +126,15 @@ class WorkerViewModel extends ChangeNotifier {
     }
   }
 
+  Future<void> loadAssignedSite() async {
+    try {
+      _assignedSite = await _apiService.getAssignedSite();
+    } catch (e) {
+      _assignedSite = null;
+    }
+    notifyListeners();
+  }
+
   Future<void> _loadRecentActivities() async {
     try {
       _recentActivities = await _apiService.getWorkerActivities();
@@ -131,33 +145,17 @@ class WorkerViewModel extends ChangeNotifier {
   }
 
   Future<bool> startShift({
-    required String siteId,
-    required String location,
+    required String shiftId,
     String? notes,
   }) async {
     _setLoading(true);
 
     if (_frontendOnlyMode) {
-      final site = _availableSites.firstWhere(
-        (s) => s['id'].toString() == siteId,
-        orElse: () => _availableSites.isNotEmpty
-            ? _availableSites.first
-            : {'id': siteId, 'name': 'Downtown Office'},
-      );
       _currentShift = {
-        'id': 'shift_live',
-        'siteId': siteId,
-        'siteName': site['name'] ?? 'Downtown Office',
-        'siteAddress':
-            site['address'] ?? '123 Main Street, City Center, NY 10001',
-        'startTime': DateTime.now().subtract(const Duration(minutes: 35)),
-        'lastCheckin': DateTime.now().subtract(const Duration(minutes: 14)),
+        'id': shiftId,
+        'startTime': DateTime.now(),
         'insideGeofence': true,
         'checkinsCount': _recentCheckins.length,
-        'tasksCompleted': 2,
-        'alertsCount': 0,
-        'notes': notes,
-        'location': location,
       };
       _setLoading(false);
       notifyListeners();
@@ -165,13 +163,7 @@ class WorkerViewModel extends ChangeNotifier {
     }
 
     try {
-      final shiftData = {
-        'site_id': siteId,
-        'location': location,
-        'notes': notes,
-        'start_time': DateTime.now().toIso8601String(),
-      };
-      final success = await _apiService.startShift(shiftData);
+      final success = await _apiService.startShift({'shift_id': shiftId});
       if (success) {
         await _loadCurrentShift();
       }
@@ -318,12 +310,9 @@ class WorkerViewModel extends ChangeNotifier {
 
     try {
       _shiftHistory = await _apiService.getShiftHistory();
-      if (_shiftHistory.isEmpty) {
-        _shiftHistory = _mockShiftHistory();
-      }
     } catch (e) {
       _errorMessage = e.toString();
-      _shiftHistory = _mockShiftHistory();
+      _shiftHistory = [];
     }
     _setLoading(false);
     notifyListeners();
@@ -344,10 +333,9 @@ class WorkerViewModel extends ChangeNotifier {
 
     try {
       _selectedShift = await _apiService.getShiftDetails(shiftId);
-      _selectedShift ??= _mockShiftDetails(shiftId);
     } catch (e) {
       _errorMessage = e.toString();
-      _selectedShift = _mockShiftDetails(shiftId);
+      _selectedShift = null;
     }
     _setLoading(false);
     notifyListeners();
@@ -367,12 +355,8 @@ class WorkerViewModel extends ChangeNotifier {
 
     try {
       _notifications = await _apiService.getWorkerNotifications();
-      if (_notifications.isEmpty) {
-        _notifications = _mockNotifications();
-      }
     } catch (e) {
       _errorMessage = e.toString();
-      _notifications = _mockNotifications();
     }
     _setLoading(false);
     notifyListeners();
@@ -462,12 +446,9 @@ class WorkerViewModel extends ChangeNotifier {
 
     try {
       _reports = await _apiService.getWorkerReports();
-      if (_reports.isEmpty) {
-        _reports = _mockReports();
-      }
     } catch (e) {
       _errorMessage = e.toString();
-      _reports = _mockReports();
+      _reports = [];
     }
   }
 
@@ -771,6 +752,25 @@ class WorkerViewModel extends ChangeNotifier {
     },
   ];
 
+  // ── My Shifts ─────────────────────────────────────────────────────────────
+
+  Future<void> loadMyShifts() async {
+    _setLoading(true);
+    if (_frontendOnlyMode) {
+      _myShifts = _mockMyShifts();
+      _setLoading(false);
+      notifyListeners();
+      return;
+    }
+    try {
+      _myShifts = await _apiService.getMyShifts();
+    } catch (e) {
+      _myShifts = [];
+    }
+    _setLoading(false);
+    notifyListeners();
+  }
+
   // ── Offered Shifts ────────────────────────────────────────────────────────
 
   Future<void> loadOfferedShifts() async {
@@ -782,10 +782,9 @@ class WorkerViewModel extends ChangeNotifier {
       return;
     }
     try {
-      final list = await _apiService.getOfferedShifts();
-      _offeredShifts = list.isEmpty ? _mockOfferedShifts() : list;
+      _offeredShifts = await _apiService.getOfferedShifts();
     } catch (e) {
-      _offeredShifts = _mockOfferedShifts();
+      _offeredShifts = [];
     }
     _setLoading(false);
     notifyListeners();
@@ -832,10 +831,9 @@ class WorkerViewModel extends ChangeNotifier {
       return;
     }
     try {
-      final list = await _apiService.getCheckCalls();
-      _checkCalls = list.isEmpty ? _mockCheckCalls() : list;
+      _checkCalls = await _apiService.getCheckCalls();
     } catch (e) {
-      _checkCalls = _mockCheckCalls();
+      _checkCalls = [];
     }
     _setLoading(false);
     notifyListeners();
@@ -868,10 +866,9 @@ class WorkerViewModel extends ChangeNotifier {
       return;
     }
     try {
-      final list = await _apiService.getAlarmHistory();
-      _alarmHistory = list.isEmpty ? _mockAlarmHistory() : list;
+      _alarmHistory = await _apiService.getAlarmHistory();
     } catch (e) {
-      _alarmHistory = _mockAlarmHistory();
+      _alarmHistory = [];
     }
     _setLoading(false);
     notifyListeners();
@@ -913,9 +910,9 @@ class WorkerViewModel extends ChangeNotifier {
       final alerts = response['alerts'] ?? [];
       _liveShifts = List<Map<String, dynamic>>.from(shifts);
       _liveAlerts = List<Map<String, dynamic>>.from(alerts);
-      if (_liveShifts.isEmpty) _setMockLiveOperations();
     } catch (e) {
-      _setMockLiveOperations();
+      _liveShifts = [];
+      _liveAlerts = [];
     }
     _setLoading(false);
     notifyListeners();
@@ -933,6 +930,39 @@ class WorkerViewModel extends ChangeNotifier {
   }
 
   // ── Mock data ─────────────────────────────────────────────────────────────
+
+  List<Map<String, dynamic>> _mockMyShifts() => [
+    {
+      'id': 'my_1',
+      'site_name': 'Harbour View Office Park',
+      'date': 'Jun 16, Mon',
+      'start_time': '08:00',
+      'end_time': '20:00',
+      'time': '08:00 – 20:00',
+      'hours': '12 hrs',
+      'status': 'upcoming',
+    },
+    {
+      'id': 'my_2',
+      'site_name': 'Westgate Industrial Estate',
+      'date': 'Jun 14, Sat',
+      'start_time': '08:00',
+      'end_time': '20:00',
+      'time': '08:00 – 20:00',
+      'hours': '12 hrs',
+      'status': 'active',
+    },
+    {
+      'id': 'my_3',
+      'site_name': 'City Centre Plaza',
+      'date': 'Jun 12, Thu',
+      'start_time': '06:00',
+      'end_time': '14:00',
+      'time': '06:00 – 14:00',
+      'hours': '8 hrs',
+      'status': 'completed',
+    },
+  ];
 
   List<Map<String, dynamic>> _mockOfferedShifts() => [
     {

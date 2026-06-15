@@ -24,6 +24,7 @@ class WorkerGeofenceViewModel extends ChangeNotifier {
   Map<String, dynamic>? _shiftDetails;
   PhotoResult? _pendingPhoto;
   bool _isSubmittingCheckin = false;
+  bool _isScanningQr = false;
 
   // Getters
   bool get isLoading => _isLoading;
@@ -34,6 +35,7 @@ class WorkerGeofenceViewModel extends ChangeNotifier {
   Map<String, dynamic>? get shiftDetails => _shiftDetails;
   PhotoResult? get pendingPhoto => _pendingPhoto;
   bool get isSubmittingCheckin => _isSubmittingCheckin;
+  bool get isScanningQr => _isScanningQr;
 
   /// Load current shift with geofence status
   Future<void> loadCurrentShift() async {
@@ -103,6 +105,33 @@ class WorkerGeofenceViewModel extends ChangeNotifier {
       return false;
     } finally {
       _setSubmittingCheckin(false);
+    }
+  }
+
+  /// Scan a QR checkpoint token — resolves token → checkpoint → creates checkin
+  /// Returns the result map {checkpoint_name, checkin_id, scanned_at} on success,
+  /// or null on failure (errorMessage is set).
+  Future<Map<String, dynamic>?> scanCheckpoint(String qrToken) async {
+    _isScanningQr = true;
+    _clearError();
+    notifyListeners();
+
+    try {
+      final position = _locationService.currentPosition;
+      final result = await _apiService.scanQrCheckpoint(
+        qrToken: qrToken,
+        latitude: position?.latitude,
+        longitude: position?.longitude,
+      );
+      await loadCheckinHistory();
+      return result;
+    } catch (e) {
+      final raw = e.toString();
+      _setError(raw.startsWith('Exception: ') ? raw.substring(11) : raw);
+      return null;
+    } finally {
+      _isScanningQr = false;
+      notifyListeners();
     }
   }
 

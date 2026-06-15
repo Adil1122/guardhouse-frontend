@@ -224,6 +224,32 @@ class GeofenceApiService {
     }
   }
 
+  /// Scan a QR checkpoint token and record the check-in
+  Future<Map<String, dynamic>> scanQrCheckpoint({
+    required String qrToken,
+    double? latitude,
+    double? longitude,
+  }) async {
+    try {
+      final Map<String, dynamic> body = {'qr_token': qrToken};
+      if (latitude != null) body['latitude'] = latitude.toString();
+      if (longitude != null) body['longitude'] = longitude.toString();
+
+      final response = await _dio.post('/worker/qr-scan', data: body);
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        return response.data['data'] as Map<String, dynamic>;
+      }
+      throw Exception('Unexpected response from server');
+    } on DioException catch (e) {
+      final msg = e.response?.data?['message']?.toString() ?? 'Failed to scan checkpoint';
+      throw Exception(msg);
+    } catch (e) {
+      if (e is Exception) rethrow;
+      throw Exception('Failed to scan checkpoint');
+    }
+  }
+
   /// Get checkin history for current shift
   Future<List<Map<String, dynamic>>> getCheckinHistory() async {
     try {

@@ -405,6 +405,16 @@ class AdminApiService extends ApiService {
     }
   }
 
+  Future<Map<String, dynamic>> getLiveOperations() async {
+    try {
+      final response = await dio.get('live-operations');
+      final data = response.data;
+      return data is Map ? Map<String, dynamic>.from(data) : {};
+    } catch (e) {
+      return {};
+    }
+  }
+
   // Admin APIs - Shift Management
   Future<List<Map<String, dynamic>>> getShifts() async {
     try {

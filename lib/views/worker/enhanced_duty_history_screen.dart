@@ -108,12 +108,15 @@ class _EnhancedDutyHistoryScreenState extends State<EnhancedDutyHistoryScreen> {
                                   timeText:
                                       '${_formatTime(shift['start_time'])} - ${_formatTime(shift['end_time'])}',
                                   siteText:
-                                      shift['site_name']?.toString() ?? 'Downtown Office',
+                                      shift['site_name']?.toString() ?? 'Unknown Site',
                                   hoursText: '${(shift['duration_hours'] as num? ?? 0).toStringAsFixed(1)}h',
                                   checkins: '${shift['checkins_count'] ?? 0}',
                                   photos: '${shift['photos_count'] ?? 0}',
                                   onTap: () {
-                                    // Navigate to shift details if needed
+                                    final id = shift['id']?.toString();
+                                    if (id != null) {
+                                      context.push('/worker/shift-details', extra: id);
+                                    }
                                   },
                                 ),
                               );
@@ -183,7 +186,7 @@ class _EnhancedDutyHistoryScreenState extends State<EnhancedDutyHistoryScreen> {
     final date = value is DateTime
         ? value
         : DateTime.tryParse(value?.toString() ?? '');
-    if (date == null) return 'Jan 16, 2026';
+    if (date == null) return '–';
     const months = [
       'Jan',
       'Feb',
@@ -202,16 +205,24 @@ class _EnhancedDutyHistoryScreenState extends State<EnhancedDutyHistoryScreen> {
   }
 
   String _formatTime(dynamic value) {
-    final date = value is DateTime
-        ? value
-        : DateTime.tryParse(value?.toString() ?? '');
-    if (date == null) return '8:00 AM';
-    final h = date.hour > 12
-        ? date.hour - 12
-        : (date.hour == 0 ? 12 : date.hour);
-    final m = date.minute.toString().padLeft(2, '0');
-    final ampm = date.hour >= 12 ? 'PM' : 'AM';
-    return '$h:$m $ampm';
+    if (value == null) return '–';
+    final date = value is DateTime ? value : DateTime.tryParse(value.toString());
+    if (date != null) {
+      final h = date.hour > 12 ? date.hour - 12 : (date.hour == 0 ? 12 : date.hour);
+      final m = date.minute.toString().padLeft(2, '0');
+      final ampm = date.hour >= 12 ? 'PM' : 'AM';
+      return '$h:$m $ampm';
+    }
+    // Handle H:i:s or H:i time-only strings (e.g. "08:00:00")
+    final match = RegExp(r'^(\d{1,2}):(\d{2})').firstMatch(value.toString());
+    if (match != null) {
+      final h24 = int.parse(match.group(1)!);
+      final m = match.group(2)!;
+      final h = h24 > 12 ? h24 - 12 : (h24 == 0 ? 12 : h24);
+      final ampm = h24 >= 12 ? 'PM' : 'AM';
+      return '$h:$m $ampm';
+    }
+    return '–';
   }
 }
 
