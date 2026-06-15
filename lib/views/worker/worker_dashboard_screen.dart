@@ -26,6 +26,9 @@ class WorkerDashboardScreen extends StatefulWidget {
 class _WorkerDashboardScreenState extends State<WorkerDashboardScreen> {
   Timer? _clockTimer;
   DateTime _now = DateTime.now();
+  bool _autoEndTriggered = false;
+  String? _autoEndShiftId;
+  bool _shiftEndedEarly = false;
 
   @override
   void initState() {
@@ -60,6 +63,7 @@ class _WorkerDashboardScreenState extends State<WorkerDashboardScreen> {
     _clockTimer = Timer.periodic(const Duration(seconds: 1), (_) {
       if (!mounted) return;
       setState(() => _now = DateTime.now());
+      _checkAutoEndShift();
     });
   }
 
@@ -102,6 +106,7 @@ class _WorkerDashboardScreenState extends State<WorkerDashboardScreen> {
 
     final bool onDuty = geofenceViewModel.currentShift != null;
     final bool hasAssignedSite = onDuty || assignedSite != null;
+    final bool endedEarly = !onDuty && _shiftEndedEarly;
     final bool insideGeofence = panelViewModel.isInsideGeofence;
 
     return Scaffold(
@@ -209,18 +214,26 @@ class _WorkerDashboardScreenState extends State<WorkerDashboardScreen> {
                                     decoration: BoxDecoration(
                                       color: onDuty
                                           ? AppColors.successBackground
-                                          : AppColors.infoBackground,
+                                          : endedEarly
+                                              ? Colors.orange.withOpacity(0.12)
+                                              : AppColors.infoBackground,
                                       borderRadius:
                                           BorderRadius.circular(20.r),
                                     ),
                                     child: Text(
-                                      onDuty ? 'On Duty' : 'Upcoming',
+                                      onDuty
+                                          ? 'On Duty'
+                                          : endedEarly
+                                              ? 'Ended Early'
+                                              : 'Upcoming',
                                       style: AppTypography.body().copyWith(
                                         fontSize: 10.sp,
                                         fontWeight: FontWeight.w600,
                                         color: onDuty
                                             ? AppColors.successText
-                                            : AppColors.primary,
+                                            : endedEarly
+                                                ? Colors.orange.shade700
+                                                : AppColors.primary,
                                       ),
                                     ),
                                   ),
@@ -399,7 +412,7 @@ class _WorkerDashboardScreenState extends State<WorkerDashboardScreen> {
                                 child: _DashboardMiniAction(
                                   icon: Icons.check_circle_outline,
                                   label: 'Checkin',
-                                  onTap: () => context.push('/worker/enhanced-checkin'),
+                                  onTap: () => context.push('/worker/checkin-history'),
                                 ),
                               ),
                               SizedBox(width: 10.w),
@@ -557,11 +570,101 @@ class _WorkerDashboardScreenState extends State<WorkerDashboardScreen> {
     );
   }
 
+  void _checkAutoEndShift() {
+    final geofenceVm = context.read<WorkerGeofenceViewModel>();
+    final shift = geofenceVm.currentShift;
+    if (shift == null) {
+      // Shift cleared — reset so next shift can auto-end too
+      _autoEndTriggered = false;
+      _autoEndShiftId = null;
+      return;
+    }
+
+    final shiftId = shift['id']?.toString();
+    if (shiftId == null) return;
+
+    // Reset flags when a new shift starts
+    if (_autoEndShiftId != shiftId) {
+      _autoEndTriggered = false;
+      _autoEndShiftId = shiftId;
+      _shiftEndedEarly = false;
+    }
+
+    if (_autoEndTriggered) return;
+
+    final startDate = shift['start_date']?.toString();
+    final endTimeRaw = shift['end_time']?.toString();
+    final startTimeRaw = shift['start_time']?.toString();
+    if (startDate == null || endTimeRaw == null) return;
+
+    try {
+      final endDt = DateTime.parse('$startDate $endTimeRaw');
+      DateTime shiftEnd = endDt;
+
+      // If end_time <= start_time the shift crosses midnight — add a day
+      if (startTimeRaw != null) {
+        final startDt = DateTime.parse('$startDate $startTimeRaw');
+        if (!endDt.isAfter(startDt)) {
+          shiftEnd = endDt.add(const Duration(days: 1));
+        }
+      }
+
+      if (_now.isAfter(shiftEnd)) {
+        _autoEndTriggered = true;
+        _autoEndShift(shiftId);
+      }
+    } catch (_) {
+      // Unparseable time — skip
+    }
+  }
+
+  Future<void> _autoEndShift(String shiftId) async {
+    final workerVm = context.read<WorkerViewModel>();
+    final ok = await workerVm.endShift(
+      shiftId: shiftId,
+      notes: 'Auto-ended: shift time completed',
+      hasIncidents: false,
+    );
+    if (!mounted) return;
+    await context.read<WorkerGeofenceViewModel>().loadCurrentShift();
+    if (!mounted) return;
+    context.read<WorkerPanelViewModel>().syncGeofenceStatus(null);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(ok ? 'Shift ended automatically' : 'Auto-end failed — please end manually'),
+        backgroundColor: ok ? AppColors.success : AppColors.error,
+        duration: const Duration(seconds: 4),
+      ),
+    );
+  }
+
   Future<void> _showEndShiftDialog(
     BuildContext context,
     WorkerViewModel workerViewModel,
     String shiftId,
   ) async {
+    // Capture shift end time before dialog opens
+    final geofenceVm = context.read<WorkerGeofenceViewModel>();
+    final shift = geofenceVm.currentShift;
+    bool endedBeforeScheduled = false;
+    if (shift != null) {
+      try {
+        final startDate = shift['start_date']?.toString();
+        final endTimeRaw = shift['end_time']?.toString();
+        final startTimeRaw = shift['start_time']?.toString();
+        if (startDate != null && endTimeRaw != null) {
+          DateTime shiftEnd = DateTime.parse('$startDate $endTimeRaw');
+          if (startTimeRaw != null) {
+            final startDt = DateTime.parse('$startDate $startTimeRaw');
+            if (!shiftEnd.isAfter(startDt)) {
+              shiftEnd = shiftEnd.add(const Duration(days: 1));
+            }
+          }
+          endedBeforeScheduled = _now.isBefore(shiftEnd);
+        }
+      } catch (_) {}
+    }
+
     await showDialog<void>(
       context: context,
       builder: (dialogContext) {
@@ -583,6 +686,9 @@ class _WorkerDashboardScreenState extends State<WorkerDashboardScreen> {
                   hasIncidents: false,
                 );
                 if (!mounted) return;
+                if (ok && endedBeforeScheduled) {
+                  setState(() => _shiftEndedEarly = true);
+                }
                 // Reload geofence so onDuty reflects the ended shift
                 await context.read<WorkerGeofenceViewModel>().loadCurrentShift();
                 if (!mounted) return;

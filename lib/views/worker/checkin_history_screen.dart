@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
+import 'package:security_app/config/api_config.dart';
 import 'package:security_app/constants/app_constants.dart';
 import 'package:security_app/constants/typography.dart';
 import 'package:security_app/viewmodels/worker_geofence_viewmodel.dart';
@@ -22,11 +22,18 @@ class _CheckinHistoryScreenState extends State<CheckinHistoryScreen> {
     });
   }
 
+  void _viewCheckin(Map<String, dynamic> checkin) {
+    showDialog(
+      context: context,
+      builder: (context) => _CheckinDetailsDialog(checkin: checkin),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final vm = context.watch<WorkerGeofenceViewModel>();
     final checkins = vm.checkinHistory;
-    
+
     return Scaffold(
       backgroundColor: AppColors.dashboardBackground,
       appBar: AppBar(
@@ -36,9 +43,7 @@ class _CheckinHistoryScreenState extends State<CheckinHistoryScreen> {
         elevation: 0,
       ),
       body: RefreshIndicator(
-        onRefresh: () async {
-          await vm.loadCheckinHistory();
-        },
+        onRefresh: () async => vm.loadCheckinHistory(),
         child: vm.isLoading
             ? const Center(child: CircularProgressIndicator())
             : checkins.isEmpty
@@ -46,15 +51,10 @@ class _CheckinHistoryScreenState extends State<CheckinHistoryScreen> {
                 : ListView.builder(
                     padding: EdgeInsets.all(16.w),
                     itemCount: checkins.length,
-                    itemBuilder: (context, index) {
-                      final checkin = checkins[index];
-                      return _CheckinCard(
-                        checkin: checkin,
-                        onView: () => _viewCheckin(checkin),
-                        onEdit: () => _editCheckin(checkin),
-                        onDelete: () => _deleteCheckin(checkin),
-                      );
-                    },
+                    itemBuilder: (context, index) => _CheckinCard(
+                      checkin: checkins[index],
+                      onTap: () => _viewCheckin(checkins[index]),
+                    ),
                   ),
       ),
     );
@@ -67,11 +67,7 @@ class _CheckinHistoryScreenState extends State<CheckinHistoryScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              Icons.history,
-              size: 64.sp,
-              color: AppColors.textSecondary,
-            ),
+            Icon(Icons.history, size: 64.sp, color: AppColors.textSecondary),
             SizedBox(height: 16.h),
             Text(
               'No Check-in History',
@@ -84,52 +80,10 @@ class _CheckinHistoryScreenState extends State<CheckinHistoryScreen> {
             Text(
               'Your check-ins will appear here once you start checking in.',
               textAlign: TextAlign.center,
-              style: AppTypography.body().copyWith(
-                color: AppColors.textSecondary,
-              ),
+              style: AppTypography.body().copyWith(color: AppColors.textSecondary),
             ),
           ],
         ),
-      ),
-    );
-  }
-
-  void _viewCheckin(Map<String, dynamic> checkin) {
-    showDialog(
-      context: context,
-      builder: (context) => _CheckinDetailsDialog(checkin: checkin),
-    );
-  }
-
-  void _editCheckin(Map<String, dynamic> checkin) {
-    // TODO: Implement edit functionality
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Edit functionality coming soon')),
-    );
-  }
-
-  void _deleteCheckin(Map<String, dynamic> checkin) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Delete Check-in'),
-        content: const Text('Are you sure you want to delete this check-in?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-              // TODO: Implement delete functionality
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Delete functionality coming soon')),
-              );
-            },
-            child: const Text('Delete', style: TextStyle(color: Colors.red)),
-          ),
-        ],
       ),
     );
   }
@@ -137,152 +91,125 @@ class _CheckinHistoryScreenState extends State<CheckinHistoryScreen> {
 
 class _CheckinCard extends StatelessWidget {
   final Map<String, dynamic> checkin;
-  final VoidCallback onView;
-  final VoidCallback onEdit;
-  final VoidCallback onDelete;
+  final VoidCallback onTap;
 
-  const _CheckinCard({
-    required this.checkin,
-    required this.onView,
-    required this.onEdit,
-    required this.onDelete,
-  });
+  const _CheckinCard({required this.checkin, required this.onTap});
+
+  Color _typeColor(String? type) {
+    switch (type) {
+      case 'incident':   return Colors.red;
+      case 'checkpoint': return Colors.blue;
+      default:           return Colors.green;
+    }
+  }
+
+  String _formatDateTime(dynamic value) {
+    if (value == null) return 'Unknown';
+    try {
+      final dt = DateTime.parse(value.toString());
+      return '${dt.day}/${dt.month}/${dt.year}  ${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
+    } catch (_) {
+      return value.toString();
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
+    final hasPhoto = checkin['photo_path'] != null;
+    final insideGeofence = checkin['inside_geofence'] == true;
+
     return Card(
       margin: EdgeInsets.only(bottom: 12.h),
-      child: Padding(
-        padding: EdgeInsets.all(16.w),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  checkin['type']?.toString().toUpperCase() ?? 'REGULAR',
-                  style: AppTypography.body().copyWith(
-                    fontWeight: FontWeight.bold,
-                    color: _getTypeColor(checkin['type']),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(8.r),
+        child: Padding(
+          padding: EdgeInsets.all(14.w),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Header row: type badge + timestamp
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Container(
+                    padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 3.h),
+                    decoration: BoxDecoration(
+                      color: _typeColor(checkin['type']?.toString()).withOpacity(0.12),
+                      borderRadius: BorderRadius.circular(6.r),
+                    ),
+                    child: Text(
+                      checkin['type']?.toString().toUpperCase() ?? 'REGULAR',
+                      style: AppTypography.body().copyWith(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 11.sp,
+                        color: _typeColor(checkin['type']?.toString()),
+                      ),
+                    ),
                   ),
-                ),
-                Text(
-                  _formatDateTime(checkin['checked_in_at']),
-                  style: AppTypography.body().copyWith(
-                    color: AppColors.textSecondary,
-                    fontSize: 12.sp,
-                  ),
-                ),
-              ],
-            ),
-            SizedBox(height: 8.h),
-            if (checkin['location_description'] != null) ...[
-              Text(
-                checkin['location_description'],
-                style: AppTypography.body(),
-              ),
-              SizedBox(height: 4.h),
-            ],
-            if (checkin['notes'] != null) ...[
-              Text(
-                checkin['notes'],
-                style: AppTypography.body().copyWith(
-                  color: AppColors.textSecondary,
-                ),
-              ),
-              SizedBox(height: 4.h),
-            ],
-            Row(
-              children: [
-                Icon(
-                  Icons.location_on,
-                  size: 16.sp,
-                  color: AppColors.textSecondary,
-                ),
-                SizedBox(width: 4.w),
-                Text(
-                  '${checkin['latitude']}, ${checkin['longitude']}',
-                  style: AppTypography.body().copyWith(
-                    color: AppColors.textSecondary,
-                    fontSize: 12.sp,
-                  ),
-                ),
-                if (checkin['inside_geofence'] == true) ...[
-                  SizedBox(width: 8.w),
-                  Icon(
-                    Icons.check_circle,
-                    size: 16.sp,
-                    color: Colors.green,
-                  ),
-                  SizedBox(width: 4.w),
                   Text(
-                    'Inside Geofence',
+                    _formatDateTime(checkin['checked_in_at']),
                     style: AppTypography.body().copyWith(
-                      color: Colors.green,
-                      fontSize: 12.sp,
+                      color: AppColors.textSecondary,
+                      fontSize: 11.sp,
                     ),
                   ),
                 ],
-              ],
-            ),
-            SizedBox(height: 12.h),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                TextButton.icon(
-                  onPressed: onView,
-                  icon: const Icon(Icons.visibility, size: 16),
-                  label: const Text('View'),
-                  style: TextButton.styleFrom(
-                    foregroundColor: AppColors.primary,
-                  ),
+              ),
+              SizedBox(height: 8.h),
+              // Site name
+              if (checkin['site_name'] != null)
+                Row(
+                  children: [
+                    Icon(Icons.location_city, size: 14.sp, color: AppColors.primary),
+                    SizedBox(width: 4.w),
+                    Text(
+                      checkin['site_name'],
+                      style: AppTypography.body().copyWith(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 13.sp,
+                      ),
+                    ),
+                  ],
                 ),
-                SizedBox(width: 8.w),
-                TextButton.icon(
-                  onPressed: onEdit,
-                  icon: const Icon(Icons.edit, size: 16),
-                  label: const Text('Edit'),
-                  style: TextButton.styleFrom(
-                    foregroundColor: Colors.orange,
+              if (checkin['site_name'] != null) SizedBox(height: 4.h),
+              // Geofence + photo badges
+              Row(
+                children: [
+                  Icon(
+                    insideGeofence ? Icons.check_circle : Icons.cancel,
+                    size: 14.sp,
+                    color: insideGeofence ? Colors.green : Colors.orange,
                   ),
-                ),
-                SizedBox(width: 8.w),
-                TextButton.icon(
-                  onPressed: onDelete,
-                  icon: const Icon(Icons.delete, size: 16),
-                  label: const Text('Delete'),
-                  style: TextButton.styleFrom(
-                    foregroundColor: Colors.red,
+                  SizedBox(width: 4.w),
+                  Text(
+                    insideGeofence ? 'Inside Geofence' : 'Outside Geofence',
+                    style: AppTypography.body().copyWith(
+                      fontSize: 11.sp,
+                      color: insideGeofence ? Colors.green : Colors.orange,
+                    ),
                   ),
-                ),
-              ],
-            ),
-          ],
+                  if (hasPhoto) ...[
+                    SizedBox(width: 12.w),
+                    Icon(Icons.camera_alt_outlined, size: 14.sp, color: AppColors.textSecondary),
+                    SizedBox(width: 3.w),
+                    Text(
+                      'Photo',
+                      style: AppTypography.body().copyWith(
+                        fontSize: 11.sp,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                  ],
+                  const Spacer(),
+                  Icon(Icons.chevron_right, size: 16.sp, color: AppColors.textSecondary),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );
-  }
-
-  Color _getTypeColor(String? type) {
-    switch (type) {
-      case 'incident':
-        return Colors.red;
-      case 'checkpoint':
-        return Colors.blue;
-      default:
-        return Colors.green;
-    }
-  }
-
-  String _formatDateTime(String? dateTime) {
-    if (dateTime == null) return 'Unknown';
-    try {
-      final dt = DateTime.parse(dateTime);
-      return '${dt.day}/${dt.month}/${dt.year} ${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
-    } catch (e) {
-      return dateTime;
-    }
   }
 }
 
@@ -291,76 +218,126 @@ class _CheckinDetailsDialog extends StatelessWidget {
 
   const _CheckinDetailsDialog({required this.checkin});
 
+  String _formatDateTime(dynamic value) {
+    if (value == null) return 'Unknown';
+    try {
+      final dt = DateTime.parse(value.toString());
+      return '${dt.day}/${dt.month}/${dt.year}  ${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
+    } catch (_) {
+      return value.toString();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    // Prefer backend-supplied full URL; fall back to constructing from path
+    final photoPath = checkin['photo_path']?.toString();
+    final photoUrl = checkin['photo_url']?.toString()
+        ?? (photoPath != null ? '${ApiConfig.storageUrl}$photoPath' : null);
+
     return Dialog(
-      child: Padding(
-        padding: EdgeInsets.all(24.w),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      insetPadding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 40.h),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Title bar
+          Padding(
+            padding: EdgeInsets.fromLTRB(20.w, 16.h, 8.w, 0),
+            child: Row(
               children: [
-                Text(
-                  'Check-in Details',
-                  style: AppTypography.title(),
-                ),
+                Text('Check-in Details',
+                    style: AppTypography.title().copyWith(fontSize: 16.sp)),
+                const Spacer(),
                 IconButton(
                   onPressed: () => Navigator.pop(context),
                   icon: const Icon(Icons.close),
                 ),
               ],
             ),
-            SizedBox(height: 16.h),
-            _buildDetailRow('Type', checkin['type']?.toString().toUpperCase() ?? 'REGULAR'),
-            _buildDetailRow('Date Time', _formatDateTime(checkin['checked_in_at'])),
-            if (checkin['location_description'] != null)
-              _buildDetailRow('Location', checkin['location_description']),
-            if (checkin['notes'] != null)
-              _buildDetailRow('Notes', checkin['notes']),
-            _buildDetailRow('Coordinates', '${checkin['latitude']}, ${checkin['longitude']}'),
-            _buildDetailRow('Geofence Status', checkin['inside_geofence'] == true ? 'Inside' : 'Outside'),
-            if (checkin['distance_from_site'] != null)
-              _buildDetailRow('Distance from Site', '${checkin['distance_from_site']}m'),
-            if (checkin['photo_path'] != null)
-              _buildDetailRow('Photo', 'Photo uploaded'),
-            SizedBox(height: 16.h),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                ElevatedButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text('Close'),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildDetailRow(String label, String value) {
-    return Padding(
-      padding: EdgeInsets.only(bottom: 8.h),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-            width: 120.w,
-            child: Text(
-              '$label:',
-              style: AppTypography.body().copyWith(
-                fontWeight: FontWeight.bold,
+          ),
+          const Divider(height: 1),
+          // Scrollable content
+          Flexible(
+            child: SingleChildScrollView(
+              padding: EdgeInsets.all(20.w),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _row('Type', checkin['type']?.toString().toUpperCase() ?? 'REGULAR'),
+                  _row('Date & Time', _formatDateTime(checkin['checked_in_at'])),
+                  if (checkin['site_name'] != null)
+                    _row('Site', checkin['site_name'].toString()),
+                  if (checkin['location_description'] != null)
+                    _row('Location', checkin['location_description'].toString()),
+                  if (checkin['notes']?.toString().isNotEmpty == true)
+                    _row('Notes', checkin['notes'].toString()),
+                  _row(
+                    'Coordinates',
+                    checkin['latitude'] != null
+                        ? '${checkin['latitude']}, ${checkin['longitude']}'
+                        : 'N/A',
+                  ),
+                  _row(
+                    'Geofence',
+                    checkin['inside_geofence'] == true ? 'Inside ✓' : 'Outside',
+                  ),
+                  if (checkin['distance_from_site'] != null)
+                    _row('Distance', '${checkin['distance_from_site']}m'),
+                  if (checkin['checkpoint'] != null)
+                    _row('Checkpoint', checkin['checkpoint']['name']?.toString() ?? ''),
+                  // Photo
+                  if (photoUrl != null && photoUrl.isNotEmpty) ...[
+                    SizedBox(height: 12.h),
+                    Text('Photo Evidence',
+                        style: AppTypography.body()
+                            .copyWith(fontWeight: FontWeight.w600, fontSize: 13.sp)),
+                    SizedBox(height: 8.h),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(10.r),
+                      child: Image.network(
+                        photoUrl,
+                        width: double.infinity,
+                        fit: BoxFit.cover,
+                        loadingBuilder: (_, child, progress) => progress == null
+                            ? child
+                            : SizedBox(
+                                height: 160.h,
+                                child: const Center(child: CircularProgressIndicator()),
+                              ),
+                        errorBuilder: (_, __, ___) => Container(
+                          height: 80.h,
+                          decoration: BoxDecoration(
+                            color: Colors.grey.shade100,
+                            borderRadius: BorderRadius.circular(10.r),
+                          ),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.broken_image_outlined,
+                                  size: 32.sp, color: Colors.grey),
+                              SizedBox(height: 4.h),
+                              Text('Unable to load photo',
+                                  style: TextStyle(
+                                      fontSize: 11.sp, color: Colors.grey)),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ],
               ),
             ),
           ),
-          Expanded(
-            child: Text(
-              value,
-              style: AppTypography.body(),
+          const Divider(height: 1),
+          Padding(
+            padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 10.h),
+            child: SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Close'),
+              ),
             ),
           ),
         ],
@@ -368,13 +345,25 @@ class _CheckinDetailsDialog extends StatelessWidget {
     );
   }
 
-  String _formatDateTime(String? dateTime) {
-    if (dateTime == null) return 'Unknown';
-    try {
-      final dt = DateTime.parse(dateTime);
-      return '${dt.day}/${dt.month}/${dt.year} ${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
-    } catch (e) {
-      return dateTime;
-    }
+  Widget _row(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 110,
+            child: Text(
+              label,
+              style: const TextStyle(
+                  fontWeight: FontWeight.w600, fontSize: 12),
+            ),
+          ),
+          Expanded(
+            child: Text(value, style: const TextStyle(fontSize: 12)),
+          ),
+        ],
+      ),
+    );
   }
 }

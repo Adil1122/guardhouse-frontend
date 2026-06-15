@@ -914,7 +914,7 @@ class _CheckinDetailsDialog extends StatelessWidget {
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(8.r),
                     child: Image.network(
-                      'http://0.0.0.0:8000/storage/${checkin['photo_path']}',
+                      checkin['photo_url']?.toString() ?? '${ApiConfig.storageUrl}${checkin['photo_path']}',
                       fit: BoxFit.cover,
                       loadingBuilder: (context, child, loadingProgress) {
                         if (loadingProgress == null) return child;

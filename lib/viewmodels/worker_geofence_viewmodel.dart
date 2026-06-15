@@ -206,10 +206,8 @@ class WorkerGeofenceViewModel extends ChangeNotifier {
     }
   }
 
-  /// Load checkin history for current shift
+  /// Load checkin history across all shifts
   Future<void> loadCheckinHistory() async {
-    if (_currentShift == null) return;
-
     _setLoading(true);
     _clearError();
 

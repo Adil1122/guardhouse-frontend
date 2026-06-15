@@ -102,6 +102,7 @@ class _ShiftCard extends StatelessWidget {
       case 'active':       return 'Active';
       case 'upcoming':     return 'Upcoming';
       case 'completed':    return 'Completed';
+      case 'ended_early':  return 'Ended Early';
       case 'offered':      return 'Offered';
       case 'missed':       return 'Missed';
       default:             return 'Upcoming';
@@ -110,12 +111,13 @@ class _ShiftCard extends StatelessWidget {
 
   WorkerStatusVariant get _statusVariant {
     switch ((shift['status'] ?? '').toString().toLowerCase()) {
-      case 'active':    return WorkerStatusVariant.success;
-      case 'completed': return WorkerStatusVariant.warning;
-      case 'missed':    return WorkerStatusVariant.danger;
+      case 'active':       return WorkerStatusVariant.success;
+      case 'completed':    return WorkerStatusVariant.warning;
+      case 'ended_early':  return WorkerStatusVariant.warning;
+      case 'missed':       return WorkerStatusVariant.danger;
       case 'offered':
       case 'upcoming':
-      default:          return WorkerStatusVariant.info;
+      default:             return WorkerStatusVariant.info;
     }
   }
 
@@ -227,14 +229,18 @@ class _ShiftCard extends StatelessWidget {
               Container(
                 padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
                 decoration: BoxDecoration(
-                  color: _variantBg(variant),
+                  color: (shift['status'] ?? '') == 'ended_early'
+                      ? Colors.orange.withOpacity(0.12)
+                      : _variantBg(variant),
                   borderRadius: BorderRadius.circular(20.r),
                 ),
                 child: Text(
                   _statusLabel,
                   style: AppTypography.body().copyWith(
                     fontSize: 10.sp,
-                    color: _variantColor(variant),
+                    color: (shift['status'] ?? '') == 'ended_early'
+                        ? Colors.orange.shade700
+                        : _variantColor(variant),
                     fontWeight: FontWeight.w600,
                   ),
                 ),

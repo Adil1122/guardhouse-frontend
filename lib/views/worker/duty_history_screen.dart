@@ -127,7 +127,7 @@ class _DutyHistoryScreenState extends State<DutyHistoryScreen> {
                             '${_formatTime(shift['start_time'])} - ${_formatTime(shift['end_time'])}',
                         siteText:
                             shift['site_name']?.toString() ?? 'Unknown Site',
-                        hoursText: '${shift['duration_hours'] ?? 0}h',
+                        hoursText: _formatHours(shift['duration_hours']),
                         checkins: '${shift['checkins_count'] ?? 0}',
                         photos: '${shift['photos_count'] ?? 0}',
                         onTap: () => context.push(
@@ -144,6 +144,16 @@ class _DutyHistoryScreenState extends State<DutyHistoryScreen> {
         ),
       ),
     );
+  }
+
+  String _formatHours(dynamic value) {
+    final total = (value as num?)?.toDouble() ?? 0;
+    if (total <= 0) return '0h';
+    final h = total.floor();
+    final m = ((total - h) * 60).round();
+    if (m == 0) return '${h}h';
+    if (h == 0) return '${m}m';
+    return '${h}h ${m}m';
   }
 
   String _formatDate(dynamic value) {

@@ -3,6 +3,9 @@ import 'env.dart';
 class ApiConfig {
   // Change this to your Laravel backend URL
   static const String baseUrl = '${Env.baseUrl}/api/';
+
+  // Public storage URL for uploaded files (photos, etc.)
+  static const String storageUrl = '${Env.baseUrl}/public/storage/';
   
   // API Endpoints
   static const String login = 'auth/login';
