@@ -2233,6 +2233,24 @@ class AdminViewModel extends ChangeNotifier {
     return ok;
   }
 
+  final Map<String, List<Map<String, dynamic>>> _messageThreads = {};
+
+  List<Map<String, dynamic>> threadsFor(String messageId) =>
+      _messageThreads[messageId] ?? [];
+
+  Future<void> loadMessageThreads(String messageId) async {
+    try {
+      _messageThreads[messageId] = await _apiService.getMessageThreads(messageId);
+      notifyListeners();
+    } catch (_) {}
+  }
+
+  Future<bool> sendThreadReply(String messageId, int threadUserId, String body) async {
+    final ok = await _apiService.sendThreadReply(messageId, threadUserId, body);
+    if (ok) await loadMessageThreads(messageId);
+    return ok;
+  }
+
   Future<void> loadAlarmHistory() async {
     try {
       _alarmHistory = await _apiService.getAlarmHistory();

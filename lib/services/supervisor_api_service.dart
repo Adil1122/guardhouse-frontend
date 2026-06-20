@@ -258,4 +258,22 @@ class SupervisorApiService extends ApiService {
       return [];
     }
   }
+
+  Future<List<Map<String, dynamic>>> getMessageReplies(String messageId) async {
+    try {
+      final response = await dio.get('supervisor/team-messages/$messageId/replies');
+      return List<Map<String, dynamic>>.from(response.data['replies'] ?? []);
+    } catch (_) {
+      return [];
+    }
+  }
+
+  Future<bool> sendMessageReply(String messageId, String body) async {
+    try {
+      final response = await dio.post('supervisor/team-messages/$messageId/replies', data: {'body': body});
+      return response.statusCode == 201 || response.statusCode == 200;
+    } catch (_) {
+      return false;
+    }
+  }
 }

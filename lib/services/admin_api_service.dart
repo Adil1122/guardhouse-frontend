@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:dio/dio.dart';
 import 'package:file_picker/file_picker.dart';
 import 'api_service.dart';
@@ -2038,6 +2039,31 @@ class AdminApiService extends ApiService {
       final response = await dio.delete('admin/team-messages/$id');
       return response.statusCode == 200;
     } catch (_) {
+      return false;
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> getMessageThreads(String messageId) async {
+    try {
+      final response = await dio.get('admin/team-messages/$messageId/replies');
+      return List<Map<String, dynamic>>.from(response.data['threads'] ?? []);
+    } catch (_) {
+      return [];
+    }
+  }
+
+  Future<bool> sendThreadReply(String messageId, int threadUserId, String body) async {
+    try {
+      final response = await dio.post(
+        'admin/team-messages/$messageId/replies',
+        data: {'thread_user_id': threadUserId, 'body': body},
+      );
+      return response.statusCode == 201 || response.statusCode == 200;
+    } on DioException catch (e) {
+      debugPrint('sendThreadReply error: ${e.response?.statusCode} ${e.response?.data}');
+      return false;
+    } catch (e) {
+      debugPrint('sendThreadReply unknown error: $e');
       return false;
     }
   }

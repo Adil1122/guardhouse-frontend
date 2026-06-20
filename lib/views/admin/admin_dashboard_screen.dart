@@ -157,16 +157,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                             ),
                             SizedBox(height: 8.h),
                             _buildAdminActionCard(
-                              icon: Icons.message_outlined,
-                              iconBg: const Color(0xFF0E45BA),
-                              title: 'Team Messages',
-                              subtitle:
-                                  'Send announcements to all workers & supervisors',
-                              onTap: () =>
-                                  context.push(Routes.adminTeamMessages),
-                            ),
-                            SizedBox(height: 8.h),
-                            _buildAdminActionCard(
                               icon: Icons.receipt_long,
                               iconBg: const Color(0xFF0E45BA),
                               title: 'Invoice Management',
@@ -337,6 +327,15 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   ],
                 ),
               ),
+              GestureDetector(
+                onTap: () => context.push(Routes.adminTeamMessages),
+                child: Icon(
+                  Icons.mail_outline,
+                  color: Colors.white,
+                  size: 22.sp,
+                ),
+              ),
+              SizedBox(width: 14.w),
               GestureDetector(
                 onTap: () => context.push(Routes.adminAlerts),
                 child: Icon(

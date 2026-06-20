@@ -899,4 +899,22 @@ class SupervisorViewModel extends ChangeNotifier {
       notifyListeners();
     } catch (_) {}
   }
+
+  final Map<String, List<Map<String, dynamic>>> _messageReplies = {};
+
+  List<Map<String, dynamic>> repliesFor(String messageId) =>
+      _messageReplies[messageId] ?? [];
+
+  Future<void> loadMessageReplies(String messageId) async {
+    try {
+      _messageReplies[messageId] = await _apiService.getMessageReplies(messageId);
+      notifyListeners();
+    } catch (_) {}
+  }
+
+  Future<bool> sendMessageReply(String messageId, String body) async {
+    final ok = await _apiService.sendMessageReply(messageId, body);
+    if (ok) await loadMessageReplies(messageId);
+    return ok;
+  }
 }

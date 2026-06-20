@@ -144,13 +144,6 @@ class _SupervisorDashboardScreenState extends State<SupervisorDashboardScreen> {
                               onTap: () => context.push(Routes.supervisorOfficers),
                             ),
                             _buildActionCard(
-                              icon: Icons.message_outlined,
-                              iconBg: const Color(0xFF0E45BA),
-                              title: 'Team Messages',
-                              subtitle: 'View announcements from admin',
-                              onTap: () => context.push(Routes.supervisorTeamMessages),
-                            ),
-                            _buildActionCard(
                               icon: Icons.event_note_outlined,
                               iconBg: const Color(0xFF0E45BA),
                               title: 'Activity Sheet',
@@ -349,6 +342,15 @@ class _SupervisorDashboardScreenState extends State<SupervisorDashboardScreen> {
                   ],
                 ),
               ),
+              GestureDetector(
+                onTap: () => context.push(Routes.supervisorTeamMessages),
+                child: Icon(
+                  Icons.mail_outline,
+                  color: Colors.white,
+                  size: 22.sp,
+                ),
+              ),
+              SizedBox(width: 14.w),
               GestureDetector(
                 onTap: () => context.push(Routes.supervisorNotifications),
                 child: Icon(

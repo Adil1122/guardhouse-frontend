@@ -132,6 +132,7 @@ class _WorkerDashboardScreenState extends State<WorkerDashboardScreen> {
                   notifications: workerViewModel.unreadNotifications,
                   onNotificationTap: () =>
                       context.push(Routes.workerNotifications),
+                  onMessageTap: () => context.push(Routes.workerTeamMessages),
                   onLogoutTap: () => _showLogoutSheet(context, authViewModel),
                 ),
                 Padding(
@@ -446,20 +447,6 @@ class _WorkerDashboardScreenState extends State<WorkerDashboardScreen> {
                               ),
                             ],
                           ),
-                          SizedBox(height: 10.h),
-                          Row(
-                            children: [
-                              Expanded(
-                                child: _DashboardMiniAction(
-                                  icon: Icons.message_outlined,
-                                  label: 'Team Messages',
-                                  onTap: () => context.push(Routes.workerTeamMessages),
-                                ),
-                              ),
-                              SizedBox(width: 10.w),
-                              const Expanded(child: SizedBox()),
-                            ],
-                          ),
                         ],
                       ),
                       SizedBox(height: 12.h),
@@ -486,6 +473,7 @@ class _WorkerDashboardScreenState extends State<WorkerDashboardScreen> {
     required String currentTime,
     required int notifications,
     required VoidCallback onNotificationTap,
+    required VoidCallback onMessageTap,
     required VoidCallback onLogoutTap,
   }) {
     return Container(
@@ -556,6 +544,10 @@ class _WorkerDashboardScreenState extends State<WorkerDashboardScreen> {
                       ),
                     ),
                 ],
+              ),
+              IconButton(
+                onPressed: onMessageTap,
+                icon: const Icon(Icons.mail_outline, color: Colors.white),
               ),
               IconButton(
                 onPressed: onLogoutTap,
