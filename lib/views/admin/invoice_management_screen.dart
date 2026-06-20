@@ -257,7 +257,7 @@ class _InvoiceManagementScreenState extends State<InvoiceManagementScreen> {
     final dueDateStr = invoice.dueDate != null
         ? DateFormat('MMM dd, yyyy').format(invoice.dueDate!)
         : 'No due date';
-    final amountStr = '\$${invoice.totalAmount.toStringAsFixed(2)}';
+    final amountStr = '£${invoice.totalAmount.toStringAsFixed(2)}';
     final timesheetsStr =
         '${invoice.timesheetIds.length} timesheet${invoice.timesheetIds.length == 1 ? "" : "s"}';
 
@@ -1297,7 +1297,7 @@ class _InvoiceFormSheetState extends State<_InvoiceFormSheet> {
                                       ),
                                       const Spacer(),
                                       Text(
-                                        '\$${total.toStringAsFixed(2)}',
+                                        '£${total.toStringAsFixed(2)}',
                                         style: AppTypography.body().copyWith(
                                           fontSize: 13.sp,
                                           fontWeight: FontWeight.w700,

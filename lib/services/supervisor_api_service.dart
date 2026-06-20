@@ -249,4 +249,13 @@ class SupervisorApiService extends ApiService {
       return false;
     }
   }
+
+  Future<List<Map<String, dynamic>>> getTeamMessages() async {
+    try {
+      final response = await dio.get('supervisor/team-messages');
+      return List<Map<String, dynamic>>.from(response.data['messages'] ?? []);
+    } catch (_) {
+      return [];
+    }
+  }
 }

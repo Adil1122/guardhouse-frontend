@@ -53,4 +53,8 @@ class Routes {
   static const adminReports = '/admin/reports';
   static const adminAlerts = '/admin/alerts';
   static const adminLiveOperations = '/admin/live-operations';
+  static const adminAlarmCall = '/admin/alarm-call';
+  static const adminTeamMessages = '/admin/team-messages';
+  static const supervisorTeamMessages = '/supervisor/team-messages';
+  static const workerTeamMessages = '/worker/team-messages';
 }

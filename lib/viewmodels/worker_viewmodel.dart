@@ -43,6 +43,8 @@ class WorkerViewModel extends ChangeNotifier {
   List<Map<String, dynamic>> get myShifts => _myShifts;
   List<Map<String, dynamic>> get checkCalls => _checkCalls;
   List<Map<String, dynamic>> get alarmHistory => _alarmHistory;
+  List<Map<String, dynamic>> _teamMessages = [];
+  List<Map<String, dynamic>> get teamMessages => _teamMessages;
   List<Map<String, dynamic>> get liveShifts => _liveShifts;
   List<Map<String, dynamic>> get liveAlerts => _liveAlerts;
   bool get hasPendingCheckCall =>
@@ -1065,5 +1067,12 @@ class WorkerViewModel extends ChangeNotifier {
         'variant': 'danger',
       },
     ];
+  }
+
+  Future<void> loadTeamMessages() async {
+    try {
+      _teamMessages = await _apiService.getTeamMessages();
+      notifyListeners();
+    } catch (_) {}
   }
 }

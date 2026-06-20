@@ -36,6 +36,8 @@ class AdminViewModel extends ChangeNotifier {
   List<Map<String, dynamic>> _systemLogs = [];
   List<Timesheet> _timesheets = [];
   Map<String, dynamic>? _systemStatistics;
+  List<Map<String, dynamic>> _alarmHistory = [];
+  List<Map<String, dynamic>> _teamMessages = [];
 
   AdminViewModel(this._apiService);
 
@@ -68,6 +70,8 @@ class AdminViewModel extends ChangeNotifier {
   List<Map<String, dynamic>> get systemLogs => _systemLogs;
   List<Timesheet> get timesheets => _timesheets;
   Map<String, dynamic>? get systemStatistics => _systemStatistics;
+  List<Map<String, dynamic>> get alarmHistory => _alarmHistory;
+  List<Map<String, dynamic>> get teamMessages => _teamMessages;
   String get baseUrl => ApiConfig.baseUrl;
 
   // Initialize admin data
@@ -902,6 +906,14 @@ class AdminViewModel extends ChangeNotifier {
       _systemStatistics = await _apiService.getSystemStatistics();
     } catch (e) {
       _errorMessage = e.toString();
+    }
+  }
+
+  Future<bool> createSiteFromMap(Map<String, dynamic> siteData) async {
+    try {
+      return await _apiService.createSite(siteData);
+    } catch (_) {
+      return false;
     }
   }
 
@@ -2198,6 +2210,42 @@ class AdminViewModel extends ChangeNotifier {
     } catch (e) {
       _errorMessage = e.toString();
       notifyListeners();
+      return false;
+    }
+  }
+
+  Future<void> loadTeamMessages() async {
+    try {
+      _teamMessages = await _apiService.getTeamMessages();
+      notifyListeners();
+    } catch (_) {}
+  }
+
+  Future<bool> sendTeamMessage(String title, String body) async {
+    final ok = await _apiService.sendTeamMessage(title, body);
+    if (ok) await loadTeamMessages();
+    return ok;
+  }
+
+  Future<bool> deleteTeamMessage(String id) async {
+    final ok = await _apiService.deleteTeamMessage(id);
+    if (ok) await loadTeamMessages();
+    return ok;
+  }
+
+  Future<void> loadAlarmHistory() async {
+    try {
+      _alarmHistory = await _apiService.getAlarmHistory();
+      notifyListeners();
+    } catch (_) {}
+  }
+
+  Future<bool> raiseAlarm() async {
+    try {
+      final ok = await _apiService.raiseAlarm();
+      if (ok) await loadAlarmHistory();
+      return ok;
+    } catch (_) {
       return false;
     }
   }

@@ -137,18 +137,18 @@ class _SupervisorDashboardScreenState extends State<SupervisorDashboardScreen> {
                               onTap: () => context.push(Routes.supervisorQrScan),
                             ),
                             _buildActionCard(
-                              icon: Icons.campaign_outlined,
-                              iconBg: const Color(0xFFDC2626),
-                              title: 'Alarm Call',
-                              subtitle: 'Raise an emergency alarm – admin & operators notified',
-                              onTap: () => context.push(Routes.supervisorAlarmCall),
-                            ),
-                            _buildActionCard(
                               icon: Icons.people_outline,
                               iconBg: const Color(0xFF0E45BA),
                               title: 'Officers Details',
                               subtitle: 'View all assigned officers & their duty status',
                               onTap: () => context.push(Routes.supervisorOfficers),
+                            ),
+                            _buildActionCard(
+                              icon: Icons.message_outlined,
+                              iconBg: const Color(0xFF0E45BA),
+                              title: 'Team Messages',
+                              subtitle: 'View announcements from admin',
+                              onTap: () => context.push(Routes.supervisorTeamMessages),
                             ),
                             _buildActionCard(
                               icon: Icons.event_note_outlined,

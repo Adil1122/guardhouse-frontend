@@ -41,6 +41,8 @@ class SupervisorViewModel extends ChangeNotifier {
   Map<String, dynamic>? get selectedReport => _selectedReport;
   List<Map<String, dynamic>> get notifications => _notifications;
   List<Map<String, dynamic>> get alarmHistory => _alarmHistory;
+  List<Map<String, dynamic>> _teamMessages = [];
+  List<Map<String, dynamic>> get teamMessages => _teamMessages;
 
   // Computed properties
   int get unreadNotifications =>
@@ -889,5 +891,12 @@ class SupervisorViewModel extends ChangeNotifier {
   void clearError() {
     _errorMessage = null;
     notifyListeners();
+  }
+
+  Future<void> loadTeamMessages() async {
+    try {
+      _teamMessages = await _apiService.getTeamMessages();
+      notifyListeners();
+    } catch (_) {}
   }
 }

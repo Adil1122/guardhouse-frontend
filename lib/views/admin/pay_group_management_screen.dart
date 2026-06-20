@@ -309,7 +309,7 @@ class _PayGroupManagementScreenState extends State<PayGroupManagementScreen> {
           ),
           SizedBox(height: 3.h),
           Text(
-            'Base Rate: \$${group.baseRate.toStringAsFixed(2)}',
+            'Base Rate: £${group.baseRate.toStringAsFixed(2)}',
             style: AppTypography.body().copyWith(
               fontSize: 12.sp,
               color: const Color(0xFF4B5563),
@@ -999,10 +999,12 @@ class _PayRatesSheetState extends State<_PayRatesSheet> {
                             SizedBox(height: 8.h),
                             Row(
                               children: [
-                                Icon(
-                                  Icons.attach_money,
-                                  size: 14.sp,
-                                  color: const Color(0xFF6B7280),
+                                Text(
+                                  '£',
+                                  style: AppTypography.body().copyWith(
+                                    fontSize: 13.sp,
+                                    color: const Color(0xFF6B7280),
+                                  ),
                                 ),
                                 SizedBox(width: 2.w),
                                 Text(
@@ -1369,7 +1371,7 @@ class _PayRateFormDialogState extends State<_PayRateFormDialog> {
                 keyboardType: const TextInputType.numberWithOptions(
                   decimal: true,
                 ),
-                decoration: _inputDecoration('Pay Rate (\$) *'),
+                decoration: _inputDecoration('Pay Rate (£) *'),
                 validator: (v) {
                   if (v == null || v.trim().isEmpty) {
                     return 'Pay rate is required';

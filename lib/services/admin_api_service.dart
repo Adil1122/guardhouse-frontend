@@ -2010,4 +2010,55 @@ class AdminApiService extends ApiService {
       throw Exception('Failed to reject timesheet');
     }
   }
+
+  Future<List<Map<String, dynamic>>> getTeamMessages() async {
+    try {
+      final response = await dio.get('admin/team-messages');
+      return List<Map<String, dynamic>>.from(response.data['messages'] ?? []);
+    } catch (_) {
+      return [];
+    }
+  }
+
+  Future<bool> sendTeamMessage(String title, String body) async {
+    try {
+      final response = await dio.post('admin/team-messages', data: {'title': title, 'body': body});
+      return response.statusCode == 201 || response.statusCode == 200;
+    } on DioException catch (e) {
+      debugPrint('sendTeamMessage error: ${e.response?.statusCode} ${e.response?.data}');
+      return false;
+    } catch (e) {
+      debugPrint('sendTeamMessage unknown error: $e');
+      return false;
+    }
+  }
+
+  Future<bool> deleteTeamMessage(String id) async {
+    try {
+      final response = await dio.delete('admin/team-messages/$id');
+      return response.statusCode == 200;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> getAlarmHistory() async {
+    try {
+      final response = await dio.get('admin/alarms');
+      final data = response.data;
+      if (data is List) return List<Map<String, dynamic>>.from(data);
+      return List<Map<String, dynamic>>.from(data['alarms'] ?? data['data'] ?? []);
+    } catch (_) {
+      return [];
+    }
+  }
+
+  Future<bool> raiseAlarm([Map<String, dynamic>? data]) async {
+    try {
+      final response = await dio.post('admin/alarms', data: data ?? {});
+      return response.statusCode == 200 || response.statusCode == 201;
+    } catch (_) {
+      return false;
+    }
+  }
 }

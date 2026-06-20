@@ -446,6 +446,20 @@ class _WorkerDashboardScreenState extends State<WorkerDashboardScreen> {
                               ),
                             ],
                           ),
+                          SizedBox(height: 10.h),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: _DashboardMiniAction(
+                                  icon: Icons.message_outlined,
+                                  label: 'Team Messages',
+                                  onTap: () => context.push(Routes.workerTeamMessages),
+                                ),
+                              ),
+                              SizedBox(width: 10.w),
+                              const Expanded(child: SizedBox()),
+                            ],
+                          ),
                         ],
                       ),
                       SizedBox(height: 12.h),

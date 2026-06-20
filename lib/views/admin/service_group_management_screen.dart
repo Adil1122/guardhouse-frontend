@@ -312,7 +312,7 @@ class _ServiceGroupManagementScreenState
           ),
           SizedBox(height: 3.h),
           Text(
-            'Base Rate: \$${group.baseRate.toStringAsFixed(2)}',
+            'Base Rate: £${group.baseRate.toStringAsFixed(2)}',
             style: AppTypography.body().copyWith(
               fontSize: 12.sp,
               color: const Color(0xFF4B5563),
@@ -705,7 +705,7 @@ class _ServiceGroupFormSheetState extends State<_ServiceGroupFormSheet> {
                       keyboardType: const TextInputType.numberWithOptions(
                         decimal: true,
                       ),
-                      decoration: _inputDecoration('Base Rate (\$) *'),
+                      decoration: _inputDecoration('Base Rate (£) *'),
                       validator: (v) {
                         if (v == null || v.trim().isEmpty) {
                           return 'Base rate is required';
@@ -976,10 +976,12 @@ class _ServiceRatesSheetState extends State<_ServiceRatesSheet> {
                             SizedBox(height: 8.h),
                             Row(
                               children: [
-                                Icon(
-                                  Icons.attach_money,
-                                  size: 14.sp,
-                                  color: const Color(0xFF6B7280),
+                                Text(
+                                  '£',
+                                  style: AppTypography.body().copyWith(
+                                    fontSize: 13.sp,
+                                    color: const Color(0xFF6B7280),
+                                  ),
                                 ),
                                 SizedBox(width: 2.w),
                                 Text(
@@ -1334,7 +1336,7 @@ class _ServiceRateFormDialogState extends State<_ServiceRateFormDialog> {
                 keyboardType: const TextInputType.numberWithOptions(
                   decimal: true,
                 ),
-                decoration: _inputDecoration('Service Rate (\$) *'),
+                decoration: _inputDecoration('Service Rate (£) *'),
                 validator: (v) {
                   if (v == null || v.trim().isEmpty) {
                     return 'Service rate is required';

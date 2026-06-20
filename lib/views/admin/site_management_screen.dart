@@ -1,8 +1,13 @@
 import 'dart:convert';
+import 'dart:io';
+import 'package:csv/csv.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
+import 'package:share_plus/share_plus.dart';
 
 import '../../constants/app_constants.dart';
 import '../../constants/typography.dart';
@@ -140,6 +145,254 @@ class _SiteManagementScreenState extends State<SiteManagementScreen> {
   void dispose() {
     _searchController.dispose();
     super.dispose();
+  }
+
+  // ─── CSV Export ────────────────────────────────────────────────────────────
+
+  Future<void> _exportCsv() async {
+    final sites = context.read<AdminViewModel>().sites;
+    if (sites.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No sites to export')),
+      );
+      return;
+    }
+
+    final rows = <List<dynamic>>[
+      ['name', 'address', 'latitude', 'longitude', 'geofence_radius', 'status', 'description'],
+    ];
+
+    for (final site in sites) {
+      String address = '';
+      final raw = site['address'];
+      if (raw != null) {
+        final s = raw.toString();
+        if (s.trim().startsWith('{')) {
+          try {
+            final m = jsonDecode(s) as Map;
+            address = [m['name'], m['city'], m['state'], m['country']]
+                .where((p) => p != null && p.toString().isNotEmpty)
+                .join(', ');
+          } catch (_) {
+            address = s;
+          }
+        } else {
+          address = s;
+        }
+      }
+
+      double? lat, lng;
+      var gf = site['geofence'];
+      if (gf is String && gf.trim().startsWith('{')) {
+        try { gf = jsonDecode(gf); } catch (_) {}
+      }
+      if (gf is Map) {
+        lat = double.tryParse((gf['lat'] ?? gf['latitude'] ?? '').toString());
+        lng = double.tryParse((gf['lng'] ?? gf['longitude'] ?? '').toString());
+      }
+      lat ??= double.tryParse((site['latitude'] ?? site['lat'] ?? '').toString());
+      lng ??= double.tryParse((site['longitude'] ?? site['lng'] ?? '').toString());
+
+      String radius = '';
+      if (gf is Map) {
+        radius = (gf['check_in_distance'] ?? gf['radius'] ?? '').toString();
+      }
+      if (radius.isEmpty) {
+        radius = (site['geofence_radius'] ?? site['radius'] ?? '').toString();
+      }
+
+      rows.add([
+        site['name'] ?? '',
+        address,
+        lat ?? '',
+        lng ?? '',
+        radius,
+        site['status'] ?? 'active',
+        site['description'] ?? '',
+      ]);
+    }
+
+    final csv = const ListToCsvConverter().convert(rows);
+    final dir = await getTemporaryDirectory();
+    final file = File('${dir.path}/sites_export.csv');
+    await file.writeAsString(csv);
+
+    await SharePlus.instance.share(
+      ShareParams(
+        files: [XFile(file.path, mimeType: 'text/csv')],
+        subject: 'Sites Export',
+      ),
+    );
+  }
+
+  // ─── CSV Import ────────────────────────────────────────────────────────────
+
+  Future<void> _importCsv() async {
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['csv'],
+    );
+    if (result == null || result.files.isEmpty) return;
+
+    final path = result.files.single.path;
+    if (path == null) return;
+
+    try {
+      final content = await File(path).readAsString();
+      final rows = const CsvToListConverter(eol: '\n').convert(content);
+      if (rows.length < 2) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('CSV file is empty or has no data rows')),
+          );
+        }
+        return;
+      }
+
+      // Map header row to indices
+      final header = rows.first.map((e) => e.toString().trim().toLowerCase()).toList();
+      final nameIdx    = header.indexOf('name');
+      final addrIdx    = header.indexOf('address');
+      final latIdx     = header.indexOf('latitude');
+      final lngIdx     = header.indexOf('longitude');
+      final radiusIdx  = header.indexOf('geofence_radius');
+      final statusIdx  = header.indexOf('status');
+      final descIdx    = header.indexOf('description');
+
+      if (nameIdx == -1) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('CSV must have a "name" column')),
+          );
+        }
+        return;
+      }
+
+      final dataRows = rows.skip(1).where((r) {
+        final name = nameIdx < r.length ? r[nameIdx].toString().trim() : '';
+        return name.isNotEmpty;
+      }).toList();
+
+      if (dataRows.isEmpty) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('No valid rows found in CSV')),
+          );
+        }
+        return;
+      }
+
+      if (!mounted) return;
+      final confirmed = await _showImportPreviewDialog(dataRows, header, nameIdx, addrIdx);
+      if (confirmed != true) return;
+
+      int success = 0, failed = 0;
+      final vm = context.read<AdminViewModel>();
+
+      for (final row in dataRows) {
+        String cell(int idx) => idx >= 0 && idx < row.length ? row[idx].toString().trim() : '';
+        final lat = double.tryParse(cell(latIdx)) ?? 0.0;
+        final lng = double.tryParse(cell(lngIdx)) ?? 0.0;
+        final radius = double.tryParse(cell(radiusIdx)) ?? 200.0;
+
+        final siteData = {
+          'name': cell(nameIdx),
+          'address': cell(addrIdx),
+          'latitude': lat.toString(),
+          'longitude': lng.toString(),
+          'status': cell(statusIdx).isNotEmpty ? cell(statusIdx) : 'active',
+          'description': cell(descIdx),
+          'geofence': jsonEncode({
+            'lat': lat,
+            'lng': lng,
+            'check_in_distance': radius.toInt(),
+          }),
+        };
+
+        final ok = await vm.createSiteFromMap(siteData);
+        ok ? success++ : failed++;
+      }
+
+      if (mounted) {
+        await vm.loadSites();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Import complete: $success created, $failed failed'),
+            backgroundColor: failed == 0 ? Colors.green : Colors.orange,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to read CSV: $e'), backgroundColor: Colors.red),
+        );
+      }
+    }
+  }
+
+  Future<bool?> _showImportPreviewDialog(
+    List<List<dynamic>> rows,
+    List<String> header,
+    int nameIdx,
+    int addrIdx,
+  ) {
+    return showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('Import ${rows.length} Site${rows.length == 1 ? '' : 's'}?'),
+        content: SizedBox(
+          width: double.maxFinite,
+          height: 260.h,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'The following sites will be created:',
+                style: TextStyle(fontSize: 12.sp, color: Colors.grey.shade600),
+              ),
+              SizedBox(height: 8.h),
+              Expanded(
+                child: ListView.builder(
+                  itemCount: rows.length,
+                  itemBuilder: (_, i) {
+                    final r = rows[i];
+                    final name = nameIdx < r.length ? r[nameIdx].toString() : '';
+                    final addr = addrIdx >= 0 && addrIdx < r.length ? r[addrIdx].toString() : '';
+                    return Padding(
+                      padding: EdgeInsets.only(bottom: 6.h),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Icon(Icons.location_on_outlined, size: 14.sp, color: AppColors.primary),
+                          SizedBox(width: 4.w),
+                          Expanded(
+                            child: Text(
+                              addr.isNotEmpty ? '$name\n$addr' : name,
+                              style: TextStyle(fontSize: 12.sp),
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text('Import ${rows.length} Site${rows.length == 1 ? '' : 's'}'),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _showCreateSitePopup() async {
@@ -371,6 +624,22 @@ class _SiteManagementScreenState extends State<SiteManagementScreen> {
                                 ),
                               ],
                             ),
+                          ),
+                          // CSV import / export
+                          IconButton(
+                            onPressed: _importCsv,
+                            tooltip: 'Import CSV',
+                            icon: Icon(Icons.upload_file, color: Colors.white, size: 22.sp),
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(),
+                          ),
+                          SizedBox(width: 8.w),
+                          IconButton(
+                            onPressed: _exportCsv,
+                            tooltip: 'Export CSV',
+                            icon: Icon(Icons.download, color: Colors.white, size: 22.sp),
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(),
                           ),
                         ],
                       ),

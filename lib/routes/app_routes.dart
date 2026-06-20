@@ -58,6 +58,8 @@ import '../views/admin/edit_site_screen.dart';
 import '../views/admin/reports_analytics_screen.dart';
 import '../views/admin/alert_notification_screen.dart';
 import '../views/admin/live_operations_screen.dart';
+import '../views/admin/admin_alarm_call_screen.dart';
+import '../views/shared/team_messages_screen.dart';
 
 GoRouter createAppRouter(
   AuthViewModel authViewModel, {
@@ -336,6 +338,22 @@ GoRouter createAppRouter(
       GoRoute(
         path: Routes.adminLiveOperations,
         builder: (context, state) => const LiveOperationsScreen(),
+      ),
+      GoRoute(
+        path: Routes.adminAlarmCall,
+        builder: (context, state) => const AdminAlarmCallScreen(),
+      ),
+      GoRoute(
+        path: Routes.adminTeamMessages,
+        builder: (context, state) => const TeamMessagesScreen(role: TeamMessageRole.admin),
+      ),
+      GoRoute(
+        path: Routes.supervisorTeamMessages,
+        builder: (context, state) => const TeamMessagesScreen(role: TeamMessageRole.supervisor),
+      ),
+      GoRoute(
+        path: Routes.workerTeamMessages,
+        builder: (context, state) => const TeamMessagesScreen(role: TeamMessageRole.worker),
       ),
       // Development-only routes for easier step access during hot reload
       ...(!kDebugMode

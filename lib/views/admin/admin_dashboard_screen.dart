@@ -147,6 +147,26 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                             ),
                             SizedBox(height: 8.h),
                             _buildAdminActionCard(
+                              icon: Icons.campaign_outlined,
+                              iconBg: const Color(0xFFDC2626),
+                              title: 'Alarm Call',
+                              subtitle:
+                                  'Raise an emergency alarm – supervisors & operators notified',
+                              onTap: () =>
+                                  context.push(Routes.adminAlarmCall),
+                            ),
+                            SizedBox(height: 8.h),
+                            _buildAdminActionCard(
+                              icon: Icons.message_outlined,
+                              iconBg: const Color(0xFF0E45BA),
+                              title: 'Team Messages',
+                              subtitle:
+                                  'Send announcements to all workers & supervisors',
+                              onTap: () =>
+                                  context.push(Routes.adminTeamMessages),
+                            ),
+                            SizedBox(height: 8.h),
+                            _buildAdminActionCard(
                               icon: Icons.receipt_long,
                               iconBg: const Color(0xFF0E45BA),
                               title: 'Invoice Management',

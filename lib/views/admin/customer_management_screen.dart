@@ -785,9 +785,9 @@ class _CustomerDetailSheetState extends State<_CustomerDetailSheet> {
                   initialValue: widget.isEdit && widget.customer != null 
                       ? ((widget.customer!['address'] as Map<String, dynamic>?)?['state']?.toString() ?? '')
                       : null,
-                  decoration: _inputDecoration('State *'),
+                  decoration: _inputDecoration('County *'),
                   validator: (v) => (v == null || v.trim().isEmpty)
-                      ? 'State is required'
+                      ? 'County is required'
                       : null,
                 ),
               ),
@@ -802,9 +802,9 @@ class _CustomerDetailSheetState extends State<_CustomerDetailSheet> {
                   initialValue: widget.isEdit && widget.customer != null 
                       ? ((widget.customer!['address'] as Map<String, dynamic>?)?['zip']?.toString() ?? '')
                       : null,
-                  decoration: _inputDecoration('Zip *'),
+                  decoration: _inputDecoration('Post Code *'),
                   validator: (v) => (v == null || v.trim().isEmpty)
-                      ? 'Zip is required'
+                      ? 'Post Code is required'
                       : null,
                 ),
               ),
@@ -1931,9 +1931,9 @@ class _InvoicesPanelState extends State<_InvoicesPanel> {
 
   String _amount(Map<String, dynamic> inv) {
     final v = inv['amount'];
-    if (v == null) return '\$0.00';
+    if (v == null) return '£0.00';
     final numVal = double.tryParse(v.toString()) ?? 0.0;
-    return '\$${numVal.toStringAsFixed(2)}';
+    return '£${numVal.toStringAsFixed(2)}';
   }
 
   String _dueDate(Map<String, dynamic> inv) {
@@ -2668,7 +2668,7 @@ class _InvoiceProfileFormDialogState extends State<_InvoiceProfileFormDialog> {
                   Expanded(
                     child: UltimateMobileTextField(
                       controller: _stateCtrl,
-                      decoration: _dlgInput('State *'),
+                      decoration: _dlgInput('County *'),
                       validator: (v) =>
                           (v == null || v.trim().isEmpty) ? 'Required' : null,
                     ),
@@ -2681,7 +2681,7 @@ class _InvoiceProfileFormDialogState extends State<_InvoiceProfileFormDialog> {
                   Expanded(
                     child: UltimateMobileTextField(
                       controller: _zipCtrl,
-                      decoration: _dlgInput('Zip *'),
+                      decoration: _dlgInput('Post Code *'),
                       validator: (v) =>
                           (v == null || v.trim().isEmpty) ? 'Required' : null,
                     ),

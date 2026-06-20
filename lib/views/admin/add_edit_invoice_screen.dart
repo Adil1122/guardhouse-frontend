@@ -758,13 +758,13 @@ class _AddEditInvoiceScreenState extends State<AddEditInvoiceScreen> {
           SizedBox(height: 10.h),
           Row(
             children: [
-              _buildItemDetail('Rate', '\$${item.rate.toStringAsFixed(2)}'),
+              _buildItemDetail('Rate', '£${item.rate.toStringAsFixed(2)}'),
               SizedBox(width: 16.w),
               _buildItemDetail('Units', item.units.toStringAsFixed(2)),
               SizedBox(width: 16.w),
               _buildItemDetail(
                 'Total',
-                '\$${item.totalAmount.toStringAsFixed(2)}',
+                '£${item.totalAmount.toStringAsFixed(2)}',
                 highlight: true,
               ),
             ],
@@ -942,7 +942,7 @@ class _AddEditInvoiceScreenState extends State<AddEditInvoiceScreen> {
                   ),
                   const Spacer(),
                   Text(
-                    '\$${total.toStringAsFixed(2)}',
+                    '£${total.toStringAsFixed(2)}',
                     style: AppTypography.title().copyWith(
                       fontSize: 24.sp,
                       fontWeight: FontWeight.w700,
@@ -970,7 +970,7 @@ class _AddEditInvoiceScreenState extends State<AddEditInvoiceScreen> {
         ),
         const Spacer(),
         Text(
-          '\$${amount.toStringAsFixed(2)}',
+          '£${amount.toStringAsFixed(2)}',
           style: AppTypography.body().copyWith(
             fontSize: 14.sp,
             fontWeight: FontWeight.w600,
@@ -1126,7 +1126,7 @@ class _AddEditInvoiceScreenState extends State<AddEditInvoiceScreen> {
                       ),
                       decoration: InputDecoration(
                         labelText: 'Rate *',
-                        prefixText: '\$ ',
+                        prefixText: '£ ',
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(10.r),
                         ),

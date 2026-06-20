@@ -364,4 +364,13 @@ class WorkerApiService extends ApiService {
       return {};
     }
   }
+
+  Future<List<Map<String, dynamic>>> getTeamMessages() async {
+    try {
+      final response = await dio.get('worker/team-messages');
+      return List<Map<String, dynamic>>.from(response.data['messages'] ?? []);
+    } catch (_) {
+      return [];
+    }
+  }
 }

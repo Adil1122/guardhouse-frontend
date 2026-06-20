@@ -361,6 +361,7 @@ class _StaffManagementScreenState extends State<StaffManagementScreen> {
                                       email: _email(staff),
                                       contact: _contact(staff),
                                       gender: _gender(staff),
+                                      uniqueId: staff['unique_id']?.toString(),
                                       privilegeCount: _privilegeCount(staff),
                                       complianceCount: _complianceCount(staff),
                                       canEdit: _hasPrivilege('update'),
@@ -390,6 +391,7 @@ class _StaffCard extends StatelessWidget {
   final String email;
   final String contact;
   final String gender;
+  final String? uniqueId;
   final int privilegeCount;
   final int complianceCount;
   final bool canEdit;
@@ -403,6 +405,7 @@ class _StaffCard extends StatelessWidget {
     required this.email,
     required this.contact,
     required this.gender,
+    this.uniqueId,
     required this.privilegeCount,
     required this.complianceCount,
     required this.canEdit,
@@ -455,6 +458,29 @@ class _StaffCard extends StatelessWidget {
               color: const Color(0xFF6B7280),
             ),
           ),
+          if (uniqueId != null && uniqueId!.isNotEmpty) ...[
+            SizedBox(height: 2.h),
+            Row(
+              children: [
+                Text(
+                  'ID: ',
+                  style: AppTypography.body().copyWith(
+                    fontSize: 12.sp,
+                    color: const Color(0xFF6B7280),
+                  ),
+                ),
+                Text(
+                  uniqueId!,
+                  style: AppTypography.body().copyWith(
+                    fontSize: 12.sp,
+                    color: const Color(0xFF374151),
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 1.2,
+                  ),
+                ),
+              ],
+            ),
+          ],
           SizedBox(height: 10.h),
           Row(
             children: [
