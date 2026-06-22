@@ -167,9 +167,23 @@ class _MessageCardState extends State<_MessageCard> {
   bool _expanded = false;
   final _replyCtrl = TextEditingController();
   bool _sending = false;
+  late bool _isUnread;
 
   String get _messageId => widget.message['id'].toString();
   bool get _isAdmin => widget.role == TeamMessageRole.admin;
+
+  @override
+  void initState() {
+    super.initState();
+    _isUnread = widget.message['is_unread'] == true;
+    if (_isUnread && !_isAdmin) {
+      if (widget.role == TeamMessageRole.supervisor) {
+        context.read<SupervisorViewModel>().markMessageRead(_messageId);
+      } else {
+        context.read<WorkerViewModel>().markMessageRead(_messageId);
+      }
+    }
+  }
 
   @override
   void dispose() {
@@ -212,6 +226,8 @@ class _MessageCardState extends State<_MessageCard> {
   Widget build(BuildContext context) {
     final message = widget.message;
     return WorkerPanelCard(
+      borderColor: _isUnread ? AppColors.primary : null,
+      backgroundColor: _isUnread ? AppColors.primary.withOpacity(0.04) : null,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -233,12 +249,36 @@ class _MessageCardState extends State<_MessageCard> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      message['title']?.toString() ?? '',
-                      style: AppTypography.body().copyWith(
-                        fontWeight: FontWeight.w700,
-                        fontSize: 14.sp,
-                      ),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            message['title']?.toString() ?? '',
+                            style: AppTypography.body().copyWith(
+                              fontWeight: FontWeight.w700,
+                              fontSize: 14.sp,
+                            ),
+                          ),
+                        ),
+                        if (_isUnread) ...[
+                          SizedBox(width: 6.w),
+                          Container(
+                            padding: EdgeInsets.symmetric(horizontal: 6.w, vertical: 2.h),
+                            decoration: BoxDecoration(
+                              color: AppColors.primary,
+                              borderRadius: BorderRadius.circular(4.r),
+                            ),
+                            child: Text(
+                              'NEW',
+                              style: AppTypography.body().copyWith(
+                                color: Colors.white,
+                                fontSize: 9.sp,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
                     ),
                     SizedBox(height: 2.h),
                     Text(

@@ -276,4 +276,10 @@ class SupervisorApiService extends ApiService {
       return false;
     }
   }
+
+  Future<void> markMessageRead(String messageId) async {
+    try {
+      await dio.post('supervisor/team-messages/$messageId/mark-read');
+    } catch (_) {}
+  }
 }

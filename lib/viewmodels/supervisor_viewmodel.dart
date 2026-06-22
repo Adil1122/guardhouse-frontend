@@ -917,4 +917,8 @@ class SupervisorViewModel extends ChangeNotifier {
     if (ok) await loadMessageReplies(messageId);
     return ok;
   }
+
+  Future<void> markMessageRead(String messageId) async {
+    await _apiService.markMessageRead(messageId);
+  }
 }
