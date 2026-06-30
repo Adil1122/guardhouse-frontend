@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
@@ -9,6 +11,22 @@ import 'package:security_app/viewmodels/worker_panel_viewmodel.dart';
 import 'package:security_app/viewmodels/worker_geofence_viewmodel.dart';
 import 'package:security_app/viewmodels/worker_viewmodel.dart';
 
+const _earlyStartGraceMinutes = 15;
+
+DateTime? _scheduledStartOf(Map<String, dynamic>? shift) {
+  if (shift == null) return null;
+  final dateStr = (shift['date'] ?? shift['start_date'])?.toString();
+  final timeStr = shift['start_time']?.toString();
+  if (dateStr == null || timeStr == null) return null;
+  try {
+    final datePart = dateStr.length >= 10 ? dateStr.substring(0, 10) : dateStr;
+    final timePart = timeStr.length >= 8 ? timeStr.substring(0, 8) : timeStr;
+    return DateTime.parse('$datePart $timePart');
+  } catch (_) {
+    return null;
+  }
+}
+
 class ShiftStartScreen extends StatefulWidget {
   const ShiftStartScreen({super.key});
 
@@ -18,6 +36,8 @@ class ShiftStartScreen extends StatefulWidget {
 
 class _ShiftStartScreenState extends State<ShiftStartScreen> {
   bool _starting = false;
+  Timer? _clockTimer;
+  DateTime _now = DateTime.now();
 
   @override
   void initState() {
@@ -34,6 +54,16 @@ class _ShiftStartScreenState extends State<ShiftStartScreen> {
         }
       }
     });
+    _clockTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (!mounted) return;
+      setState(() => _now = DateTime.now());
+    });
+  }
+
+  @override
+  void dispose() {
+    _clockTimer?.cancel();
+    super.dispose();
   }
 
   @override
@@ -66,6 +96,12 @@ class _ShiftStartScreenState extends State<ShiftStartScreen> {
     final activeShift = geofenceViewModel.currentShift;
     final activeSiteName = activeShift?['site_name']?.toString() ?? '';
     final isOnDutyElsewhere = activeShift != null;
+
+    final scheduledStart = _scheduledStartOf(upcomingShift);
+    final earliestStart = scheduledStart?.subtract(
+      const Duration(minutes: _earlyStartGraceMinutes),
+    );
+    final isTooEarly = earliestStart != null && _now.isBefore(earliestStart);
 
     return Scaffold(
       backgroundColor: AppColors.dashboardBackground,
@@ -165,14 +201,40 @@ class _ShiftStartScreenState extends State<ShiftStartScreen> {
                         ),
                         SizedBox(height: 10.h),
                       ],
+                      if (isTooEarly && scheduledStart != null) ...[
+                        Container(
+                          width: double.infinity,
+                          padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 10.h),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFE3ECFA),
+                            borderRadius: BorderRadius.circular(10.r),
+                            border: Border.all(color: AppColors.primary),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(Icons.schedule_outlined, size: 16.sp, color: AppColors.primary),
+                              SizedBox(width: 8.w),
+                              Expanded(
+                                child: Text(
+                                  'You can start this shift from ${TimeOfDay.fromDateTime(earliestStart).format(context)} '
+                                  '(scheduled start: ${TimeOfDay.fromDateTime(scheduledStart).format(context)}).',
+                                  style: AppTypography.body().copyWith(fontSize: 11.sp, color: AppColors.primary),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        SizedBox(height: 10.h),
+                      ],
                       SizedBox(
                         width: double.infinity,
                         child: ElevatedButton(
-                          onPressed: _starting ? null : () async {
+                          onPressed: (_starting || isTooEarly) ? null : () async {
                             final shiftId = upcomingShift!['id']?.toString() ?? '';
                             if (shiftId.isEmpty) return;
                             setState(() => _starting = true);
-                            final ok = await context.read<WorkerViewModel>().startShift(shiftId: shiftId);
+                            final workerVm = context.read<WorkerViewModel>();
+                            final ok = await workerVm.startShift(shiftId: shiftId);
                             if (!mounted) return;
                             if (ok) {
                               await context.read<WorkerGeofenceViewModel>().loadCurrentShift();
@@ -181,7 +243,7 @@ class _ShiftStartScreenState extends State<ShiftStartScreen> {
                             } else {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(
-                                  content: const Text('Failed to start shift. Please try again.'),
+                                  content: Text(workerVm.errorMessage ?? 'Failed to start shift. Please try again.'),
                                   backgroundColor: AppColors.error,
                                 ),
                               );
@@ -191,6 +253,7 @@ class _ShiftStartScreenState extends State<ShiftStartScreen> {
                           style: ElevatedButton.styleFrom(
                             backgroundColor: AppColors.primary,
                             foregroundColor: Colors.white,
+                            disabledBackgroundColor: const Color(0xFFD1D5DB),
                             elevation: 0,
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(12.r),
@@ -198,7 +261,11 @@ class _ShiftStartScreenState extends State<ShiftStartScreen> {
                             minimumSize: Size.fromHeight(44.h),
                           ),
                           child: Text(
-                            _starting ? 'Starting Shift…' : 'Start Shift',
+                            _starting
+                                ? 'Starting Shift…'
+                                : isTooEarly
+                                    ? 'Not Yet Available'
+                                    : 'Start Shift',
                             style: AppTypography.body().copyWith(
                               color: Colors.white,
                               fontWeight: FontWeight.w600,

@@ -415,6 +415,7 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen> {
                 status: _status(shift),
                 statusColor: _statusColor(_status(shift)),
                 statusBackgroundColor: _statusBackgroundColor(_status(shift)),
+                onEdit: () => _showShiftSheet(shift: shift),
                 onDelete: () => _confirmDelete(shift),
               ),
             ),
@@ -711,6 +712,7 @@ class _ShiftManagementScreenState extends State<ShiftManagementScreen> {
                   status: _status(shift),
                   statusColor: _statusColor(_status(shift)),
                   statusBackgroundColor: _statusBackgroundColor(_status(shift)),
+                  onEdit: () => _showShiftSheet(shift: shift),
                   onDelete: () => _confirmDelete(shift),
                 ),
               ),
@@ -867,6 +869,7 @@ class _ShiftCard extends StatelessWidget {
   final String status;
   final Color statusColor;
   final Color statusBackgroundColor;
+  final VoidCallback onEdit;
   final VoidCallback onDelete;
 
   const _ShiftCard({
@@ -879,6 +882,7 @@ class _ShiftCard extends StatelessWidget {
     required this.status,
     required this.statusColor,
     required this.statusBackgroundColor,
+    required this.onEdit,
     required this.onDelete,
   });
 
@@ -953,27 +957,56 @@ class _ShiftCard extends StatelessWidget {
             ],
           ),
           SizedBox(height: 12.h),
-          SizedBox(
-            width: double.infinity,
-            height: 38.h,
-            child: ElevatedButton(
-              onPressed: onDelete,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFFF7CDD1),
-                elevation: 0,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(6.r),
+          Row(
+            children: [
+              Expanded(
+                child: SizedBox(
+                  height: 38.h,
+                  child: ElevatedButton(
+                    onPressed: onEdit,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFFD1D5DB),
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(6.r),
+                      ),
+                    ),
+                    child: Text(
+                      'Edit',
+                      style: AppTypography.body().copyWith(
+                        color: const Color(0xFF111827),
+                        fontWeight: FontWeight.w500,
+                        fontSize: 13.sp,
+                      ),
+                    ),
+                  ),
                 ),
               ),
-              child: Text(
-                'Delete',
-                style: AppTypography.body().copyWith(
-                  color: const Color(0xFFEF4444),
-                  fontWeight: FontWeight.w500,
-                  fontSize: 13.sp,
+              SizedBox(width: 10.w),
+              Expanded(
+                child: SizedBox(
+                  height: 38.h,
+                  child: ElevatedButton(
+                    onPressed: onDelete,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFFF7CDD1),
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(6.r),
+                      ),
+                    ),
+                    child: Text(
+                      'Delete',
+                      style: AppTypography.body().copyWith(
+                        color: const Color(0xFFEF4444),
+                        fontWeight: FontWeight.w500,
+                        fontSize: 13.sp,
+                      ),
+                    ),
+                  ),
                 ),
               ),
-            ),
+            ],
           ),
         ],
       ),
@@ -1154,10 +1187,10 @@ class _ShiftFormSheetState extends State<_ShiftFormSheet> {
     final shift = widget.shift;
 
     _customerPOController = TextEditingController(
-      text: (shift?['customerPO'] ?? '').toString(),
+      text: (shift?['customer_po'] ?? shift?['customerPO'] ?? '').toString(),
     );
     _mealBreakController = TextEditingController(
-      text: (shift?['mealBreakDuration'] ?? '').toString(),
+      text: (shift?['break_duration'] ?? shift?['mealBreakDuration'] ?? '').toString(),
     );
 
     if (shift != null) {
@@ -1356,30 +1389,56 @@ class _ShiftFormSheetState extends State<_ShiftFormSheet> {
   @override
   Widget build(BuildContext context) {
     // Mobile UI fix: Force controller text and dropdown values to sync on each build
-    if (widget.isEdit && widget.shift != null && _selectedCustomer == null) {
+    if (widget.isEdit && widget.shift != null && _selectedSite == null) {
       final shift = widget.shift!;
       final vm = context.read<AdminViewModel>();
-      
+
       _selectedServiceType = (shift['service_type'] ?? shift['serviceType'])?.toString();
       if (_selectedServiceType == 'static-guard') _selectedServiceType = 'Guard';
       if (_selectedServiceType == 'mobile-patrol') _selectedServiceType = 'Patrol';
 
-      _selectedTimezone = (shift['timezone'] ?? shift['timezone'])?.toString();
-      
+      _selectedTimezone = (shift['timezone'])?.toString();
+
+      // Site comes directly from the shift's site_id; the site dropdown lists viewModel.sites.
+      final siteId = shift['site_id'] ?? shift['site']?['id'] ?? shift['siteId'];
+      if (vm.sites.isNotEmpty && siteId != null) {
+        _selectedSite = vm.sites.firstWhere(
+          (s) => s['id']?.toString() == siteId.toString(),
+          orElse: () => {},
+        );
+      }
+
+      // Customer isn't on the shift directly — derive it from the selected site's customer_profile_id.
       if (vm.customers.isNotEmpty) {
-        final customerId = (shift['customer_id'] ?? shift['customerId']);
+        final customerId = _selectedSite?['customer_profile_id'] ?? shift['customer_id'] ?? shift['customerId'];
         _selectedCustomer = vm.customers.firstWhere(
           (c) => (c['profile_id'] ?? c['id'])?.toString() == customerId?.toString(),
           orElse: () => {},
         );
-        if (_selectedCustomer!.isNotEmpty) {
-          _loadCustomerSites((_selectedCustomer!['profile_id'] ?? _selectedCustomer!['id']).toString());
-        }
       }
-      
-      if (vm.securityOfficers.isNotEmpty) {
+
+      // Assigned officer comes from assigned_to_id (or the nested assigned_to.id).
+      final officerId = shift['assigned_to_id'] ?? shift['assigned_to']?['id'] ?? shift['officerId'];
+      if (vm.securityOfficers.isNotEmpty && officerId != null) {
         _selectedOfficer = vm.securityOfficers.firstWhere(
-          (o) => o['id']?.toString() == shift['officerId']?.toString(),
+          (o) => (o['user_id'] ?? o['id'])?.toString() == officerId.toString(),
+          orElse: () => {},
+        );
+      }
+
+      // Pay group / service group from the shift's own selection.
+      final payGroupId = shift['pay_group_id'] ?? shift['payGroupId'];
+      if (vm.payGroups.isNotEmpty && payGroupId != null) {
+        _selectedPayGroup = vm.payGroups.firstWhere(
+          (g) => g['id']?.toString() == payGroupId.toString(),
+          orElse: () => {},
+        );
+      }
+
+      final serviceGroupId = shift['service_group_id'] ?? shift['serviceGroupId'];
+      if (vm.serviceGroups.isNotEmpty && serviceGroupId != null) {
+        _selectedServiceGroup = vm.serviceGroups.firstWhere(
+          (g) => g['id']?.toString() == serviceGroupId.toString(),
           orElse: () => {},
         );
       }
@@ -1395,8 +1454,8 @@ class _ShiftFormSheetState extends State<_ShiftFormSheet> {
         final currentSiteId = _selectedSite?['id']?.toString();
         final validSiteId = (currentSiteId != null && viewModel.sites.any((s) => s['id']?.toString() == currentSiteId)) ? currentSiteId : null;
 
-        final currentOfficerId = _selectedOfficer?['id']?.toString();
-        final validOfficerId = (currentOfficerId != null && viewModel.securityOfficers.any((o) => o['id']?.toString() == currentOfficerId)) ? currentOfficerId : null;
+        final currentOfficerId = (_selectedOfficer?['user_id'] ?? _selectedOfficer?['id'])?.toString();
+        final validOfficerId = (currentOfficerId != null && viewModel.securityOfficers.any((o) => (o['user_id'] ?? o['id'])?.toString() == currentOfficerId)) ? currentOfficerId : null;
 
         final currentServiceGroupId = _selectedServiceGroup?['id']?.toString();
         final validServiceGroupId = (currentServiceGroupId != null && viewModel.serviceGroups.any((g) => g['id']?.toString() == currentServiceGroupId)) ? currentServiceGroupId : null;

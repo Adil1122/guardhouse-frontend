@@ -103,21 +103,23 @@ class WorkerApiService extends ApiService {
     try {
       final response = await dio.post('worker/shift/start', data: shiftData);
       return response.statusCode == 200 || response.statusCode == 201;
-    } catch (e) {
-      return false;
+    } on DioException catch (e) {
+      final serverMessage = e.response?.data is Map ? e.response?.data['message'] : null;
+      throw Exception(serverMessage ?? 'Failed to start shift. Please try again.');
     }
   }
 
   Future<bool> endShift(Map<String, dynamic> shiftData) async {
+    final shiftId = shiftData['id'] ?? shiftData['shift_id'] ?? '';
     try {
-      final shiftId = shiftData['id'] ?? shiftData['shift_id'] ?? '';
       final response = await dio.post(
         'worker/shift/$shiftId/end',
         data: shiftData,
       );
       return response.statusCode == 200;
-    } catch (e) {
-      return false;
+    } on DioException catch (e) {
+      final serverMessage = e.response?.data is Map ? e.response?.data['message'] : null;
+      throw Exception(serverMessage ?? 'Failed to end shift. Please try again.');
     }
   }
 

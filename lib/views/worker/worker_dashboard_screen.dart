@@ -169,8 +169,16 @@ class _WorkerDashboardScreenState extends State<WorkerDashboardScreen> {
                               final workerVm = context.read<WorkerViewModel>();
                               final shiftId = upcomingShift?['id']?.toString() ?? '';
                               if (shiftId.isNotEmpty) {
-                                await workerVm.startShift(shiftId: shiftId);
+                                final ok = await workerVm.startShift(shiftId: shiftId);
                                 await geofenceVm.loadCurrentShift();
+                                if (!ok && mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text(workerVm.errorMessage ?? 'Failed to start shift.'),
+                                      backgroundColor: AppColors.error,
+                                    ),
+                                  );
+                                }
                               }
                             } else {
                               final activeSite = geofenceVm
@@ -367,13 +375,40 @@ class _WorkerDashboardScreenState extends State<WorkerDashboardScreen> {
                           ),
                         ),
                         SizedBox(height: 8.h),
+                        if (!_canEndShiftNow(geofenceViewModel.currentShift)) ...[
+                          Container(
+                            width: double.infinity,
+                            padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 10.h),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFE3ECFA),
+                              borderRadius: BorderRadius.circular(10.r),
+                              border: Border.all(color: AppColors.primary),
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(Icons.lock_clock_outlined, size: 16.sp, color: AppColors.primary),
+                                SizedBox(width: 8.w),
+                                Expanded(
+                                  child: Text(
+                                    'End Shift unlocks at scheduled end time'
+                                    '${_shiftEndDateTime(geofenceViewModel.currentShift) != null ? ' (${TimeOfDay.fromDateTime(_shiftEndDateTime(geofenceViewModel.currentShift)!).format(context)})' : ''}.',
+                                    style: AppTypography.body().copyWith(fontSize: 11.sp, color: AppColors.primary),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          SizedBox(height: 8.h),
+                        ],
                         SizedBox(
                           width: double.infinity,
                           child: WorkerActionButton(
-                            label: 'End Shift',
+                            label: _canEndShiftNow(geofenceViewModel.currentShift) ? 'End Shift' : 'Not Yet Available',
                             icon: Icons.stop_circle_outlined,
                             variant: WorkerButtonVariant.danger,
-                            onTap: () {
+                            onTap: !_canEndShiftNow(geofenceViewModel.currentShift)
+                                ? null
+                                : () {
                               final currentShiftId = geofenceViewModel.currentShift?['id']?.toString() ?? workerViewModel.currentShift?['id']?.toString() ?? '';
                               if (currentShiftId.isNotEmpty) {
                                 _showEndShiftDialog(context, workerViewModel, currentShiftId);
@@ -624,6 +659,33 @@ class _WorkerDashboardScreenState extends State<WorkerDashboardScreen> {
     }
   }
 
+  DateTime? _shiftEndDateTime(Map<String, dynamic>? shift) {
+    if (shift == null) return null;
+    final startDate = shift['start_date']?.toString();
+    final endTimeRaw = shift['end_time']?.toString();
+    final startTimeRaw = shift['start_time']?.toString();
+    if (startDate == null || endTimeRaw == null) return null;
+    try {
+      final endDt = DateTime.parse('$startDate $endTimeRaw');
+      DateTime shiftEnd = endDt;
+      if (startTimeRaw != null) {
+        final startDt = DateTime.parse('$startDate $startTimeRaw');
+        if (!endDt.isAfter(startDt)) {
+          shiftEnd = endDt.add(const Duration(days: 1));
+        }
+      }
+      return shiftEnd;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  bool _canEndShiftNow(Map<String, dynamic>? shift) {
+    final shiftEnd = _shiftEndDateTime(shift);
+    if (shiftEnd == null) return true;
+    return !_now.isBefore(shiftEnd);
+  }
+
   Future<void> _autoEndShift(String shiftId) async {
     final workerVm = context.read<WorkerViewModel>();
     final ok = await workerVm.endShift(
@@ -701,7 +763,7 @@ class _WorkerDashboardScreenState extends State<WorkerDashboardScreen> {
                 context.read<WorkerPanelViewModel>().syncGeofenceStatus(null);
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
-                    content: Text(ok ? 'Shift ended successfully' : 'Failed to end shift'),
+                    content: Text(ok ? 'Shift ended successfully' : (workerViewModel.errorMessage ?? 'Failed to end shift')),
                     backgroundColor: ok ? AppColors.success : AppColors.error,
                   ),
                 );

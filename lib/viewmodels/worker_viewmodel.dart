@@ -173,7 +173,7 @@ class WorkerViewModel extends ChangeNotifier {
       notifyListeners();
       return success;
     } catch (e) {
-      _errorMessage = e.toString();
+      _errorMessage = e.toString().replaceFirst('Exception: ', '');
       _setLoading(false);
       notifyListeners();
       return false;
@@ -220,7 +220,7 @@ class WorkerViewModel extends ChangeNotifier {
       notifyListeners();
       return success;
     } catch (e) {
-      _errorMessage = e.toString();
+      _errorMessage = e.toString().replaceFirst('Exception: ', '');
       _setLoading(false);
       notifyListeners();
       return false;
